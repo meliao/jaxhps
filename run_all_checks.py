@@ -1,7 +1,7 @@
 """
 This script runs a bunch of checks and makes plots inside the plots/accuracy_checks/ directory.
 
-These plots are then embedded in the accuracy_checks.md file in the root directory, which 
+These plots are then embedded in the accuracy_checks.md file in the root directory, which
 has some information about how to interpret the plots.
 """
 
@@ -93,10 +93,10 @@ def main():
 
     # Polynomial Data
     # single_leaf_check_0(os.path.join(OUTPUT_DIR, "single_leaf_check_0.png"))
-    # # # # # # Non-Polynomial Data
+    # # # # # # # Non-Polynomial Data
     # single_leaf_check_1(os.path.join(OUTPUT_DIR, "single_leaf_check_1.png"))
 
-    # # # # # Nonzero Source Terms
+    # # # # # # Nonzero Source Terms
     # single_leaf_check_2(os.path.join(OUTPUT_DIR, "single_leaf_check_2.png"))
     # single_leaf_check_3(os.path.join(OUTPUT_DIR, "single_leaf_check_3.png"))
     # single_leaf_check_4(os.path.join(OUTPUT_DIR, "single_leaf_check_4.png"))
@@ -106,8 +106,8 @@ def main():
     # single_leaf_check_8(os.path.join(OUTPUT_DIR, "single_leaf_check_8.png"))
     # single_leaf_check_9(os.path.join(OUTPUT_DIR, "single_leaf_check_9.png"))
     # single_leaf_check_10(os.path.join(OUTPUT_DIR, "single_leaf_check_10.png"))
-    # single_leaf_check_11(os.path.join(OUTPUT_DIR, "single_leaf_check_11.png"))
-    # single_leaf_check_12(os.path.join(OUTPUT_DIR, "single_leaf_check_12.png"))
+    single_leaf_check_11(os.path.join(OUTPUT_DIR, "single_leaf_check_11.png"))
+    single_leaf_check_12(os.path.join(OUTPUT_DIR, "single_leaf_check_12.png"))
 
     # single_leaf_check_3D_0(os.path.join(OUTPUT_DIR, "single_leaf_check_3D_0.png"))
     # single_leaf_check_3D_1(os.path.join(OUTPUT_DIR, "single_leaf_check_3D_1.png"))
@@ -163,9 +163,9 @@ def main():
     # nonuniform_grid_check_3D_2(
     #     os.path.join(OUTPUT_DIR, "nonuniform_grid_check_3D_2.png")
     # )
-    nonuniform_grid_check_3D_3(
-        os.path.join(OUTPUT_DIR, "nonuniform_grid_check_3D_3.png")
-    )
+    # nonuniform_grid_check_3D_3(
+    #     os.path.join(OUTPUT_DIR, "nonuniform_grid_check_3D_3.png")
+    # )
 
 
 def main_all():

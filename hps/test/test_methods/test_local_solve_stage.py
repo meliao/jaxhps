@@ -341,7 +341,7 @@ class Test__local_solve_stage_2D:
 
 class Test__local_solve_stage_2D_ItI:
     def test_0(self) -> None:
-        """Tests the solve_stage function returns without error and returns the correct shape."""
+        """Tests the solve_stage function returns without error and returns the correct shape. n_src = 1."""
 
         p = 16
         q = 14
@@ -386,8 +386,58 @@ class Test__local_solve_stage_2D_ItI:
 
         assert Y_arr.shape == (n_leaves, p**2, 4 * q)
         assert R_arr.shape == (n_leaves // 4, 4, 4 * q, 4 * q)
-        assert v_arr.shape == (n_leaves, p**2)
-        assert g_arr.shape == (n_leaves // 4, 4, 4 * q)
+        assert v_arr.shape == (n_leaves, p**2, 1)
+        assert g_arr.shape == (n_leaves // 4, 4, 4 * q, 1)
+
+    def test_1(self) -> None:
+        """Tests the solve_stage function returns without error and returns the correct shape. n_src = 3."""
+
+        p = 16
+        q = 14
+        l = 3
+        n_src = 3
+        eta = 4.0
+
+        root = Node(
+            xmin=0.0,
+            xmax=1.0,
+            ymin=0.0,
+            ymax=1.0,
+            zmin=None,
+            zmax=None,
+            depth=0,
+        )
+        n_leaves = 4**l
+
+        t = create_solver_obj_2D(p, q, root, uniform_levels=l, use_ItI=True, eta=eta)
+
+        sidelens = jnp.array([leaf.xmax - leaf.xmin for leaf in get_all_leaves(t.root)])
+
+        d_xx_coeffs = np.random.normal(size=(n_leaves, p**2))
+        source_term = np.random.normal(size=(n_leaves, p**2, n_src))
+        print("test_0: d_xx_coeffs = ", d_xx_coeffs.shape)
+        print("test_0: source_term = ", source_term.shape)
+
+        R_arr, Y_arr, g_arr, v_arr = _local_solve_stage_2D_ItI(
+            D_xx=t.D_xx,
+            D_xy=t.D_xy,
+            D_yy=t.D_yy,
+            D_x=t.D_x,
+            D_y=t.D_y,
+            I_P_0=t.I_P_0,
+            Q_I=t.Q_I,
+            F=t.F,
+            G=t.G,
+            p=t.p,
+            D_xx_coeffs=d_xx_coeffs,
+            D_yy_coeffs=d_xx_coeffs,
+            source_term=source_term,
+        )
+
+        assert Y_arr.shape == (n_leaves, p**2, 4 * q)
+        assert R_arr.shape == (n_leaves // 4, 4, 4 * q, 4 * q)
+        assert v_arr.shape == (n_leaves, p**2, n_src)
+        assert g_arr.shape == (n_leaves // 4, 4, 4 * q, n_src)
 
 
 class Test__local_solve_stage_3D:

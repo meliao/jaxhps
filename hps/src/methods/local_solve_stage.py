@@ -320,160 +320,6 @@ def _local_solve_stage_2D(
     return Y_arr_host, DtN_arr_host, v_host, v_prime_host
 
 
-# def _local_solve_stage_3D_chunked(
-#     D_xx: jnp.ndarray,
-#     D_xy: jnp.ndarray,
-#     D_yy: jnp.ndarray,
-#     D_xz: jnp.ndarray,
-#     D_yz: jnp.ndarray,
-#     D_zz: jnp.ndarray,
-#     D_x: jnp.ndarray,
-#     D_y: jnp.ndarray,
-#     D_z: jnp.ndarray,
-#     P: jnp.ndarray,
-#     Q_D: jnp.ndarray,
-#     p: int,
-#     source_term: jnp.ndarray,
-#     D_xx_coeffs: jnp.ndarray | None = None,
-#     D_xy_coeffs: jnp.ndarray | None = None,
-#     D_yy_coeffs: jnp.ndarray | None = None,
-#     D_xz_coeffs: jnp.ndarray | None = None,
-#     D_yz_coeffs: jnp.ndarray | None = None,
-#     D_zz_coeffs: jnp.ndarray | None = None,
-#     D_x_coeffs: jnp.ndarray | None = None,
-#     D_y_coeffs: jnp.ndarray | None = None,
-#     D_z_coeffs: jnp.ndarray | None = None,
-#     I_coeffs: jnp.ndarray | None = None,
-# ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-#     """
-#     See the docstring for _local_solve_stage_3D. This function takes the same inputs; just chunks over
-#     the n_leaves dimension.
-#     """
-#     n_leaves = source_term.shape[0]
-#     max_chunksizes = get_solve_stage_max_chunksize(
-#         p=p, dtype=source_term.dtype, problem_dim=3
-#     )
-
-#     logging.debug(
-#         "_local_solve_stage_3D_chunked: p = %s, max_chunksizes = %s, and n_leaves = %s",
-#         p,
-#         max_chunksizes,
-#         n_leaves,
-#     )
-#     chunk_start_idx = 0
-
-#     # Containers for the output data
-#     Y_arr = []
-#     DtN_arr = []
-#     v_arr = []
-#     v_prime_arr = []
-
-#     while chunk_start_idx < n_leaves:
-
-#         # Loop over all available devices
-#         for device_idx, device in enumerate(DEVICE_ARR):
-#             logging.debug("_local_solve_stage_3D_chunked: device_idx = %s", device_idx)
-#             chunk_end_idx = min(chunk_start_idx + max_chunksizes[device_idx], n_leaves)
-#             logging.debug(
-#                 "_local_solve_stage_3D_chunked: chunk_start_idx = %s, chunk_end_idx = %s",
-#                 chunk_start_idx,
-#                 chunk_end_idx,
-#             )
-
-#             # Index along the n_leaves dimension
-#             source_term_chunk = source_term[chunk_start_idx:chunk_end_idx]
-#             D_xx_coeffs_chunk = (
-#                 D_xx_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_xx_coeffs is not None
-#                 else None
-#             )
-#             D_xy_coeffs_chunk = (
-#                 D_xy_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_xy_coeffs is not None
-#                 else None
-#             )
-#             D_yy_coeffs_chunk = (
-#                 D_yy_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_yy_coeffs is not None
-#                 else None
-#             )
-#             D_xz_coeffs_chunk = (
-#                 D_xz_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_xz_coeffs is not None
-#                 else None
-#             )
-#             D_yz_coeffs_chunk = (
-#                 D_yz_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_yz_coeffs is not None
-#                 else None
-#             )
-#             D_zz_coeffs_chunk = (
-#                 D_zz_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_zz_coeffs is not None
-#                 else None
-#             )
-#             D_x_coeffs_chunk = (
-#                 D_x_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_x_coeffs is not None
-#                 else None
-#             )
-#             D_y_coeffs_chunk = (
-#                 D_y_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_y_coeffs is not None
-#                 else None
-#             )
-#             D_z_coeffs_chunk = (
-#                 D_z_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if D_z_coeffs is not None
-#                 else None
-#             )
-#             I_coeffs_chunk = (
-#                 I_coeffs[chunk_start_idx:chunk_end_idx]
-#                 if I_coeffs is not None
-#                 else None
-#             )
-
-#             # Call the local solve stage
-#             Y_arr_chunk, DtN_arr_chunk, v_chunk, v_prime_chunk = _local_solve_stage_3D(
-#                 D_xx=D_xx,
-#                 D_xy=D_xy,
-#                 D_yy=D_yy,
-#                 D_xz=D_xz,
-#                 D_yz=D_yz,
-#                 D_zz=D_zz,
-#                 D_x=D_x,
-#                 D_y=D_y,
-#                 D_z=D_z,
-#                 P=P,
-#                 Q_D=Q_D,
-#                 p=p,
-#                 source_term=source_term_chunk,
-#                 D_xx_coeffs=D_xx_coeffs_chunk,
-#                 D_xy_coeffs=D_xy_coeffs_chunk,
-#                 D_yy_coeffs=D_yy_coeffs_chunk,
-#                 D_xz_coeffs=D_xz_coeffs_chunk,
-#                 D_yz_coeffs=D_yz_coeffs_chunk,
-#                 D_zz_coeffs=D_zz_coeffs_chunk,
-#                 D_x_coeffs=D_x_coeffs_chunk,
-#                 D_y_coeffs=D_y_coeffs_chunk,
-#                 D_z_coeffs=D_z_coeffs_chunk,
-#                 I_coeffs=I_coeffs_chunk,
-#                 device=device,
-#             )
-
-#             Y_arr.append(Y_arr_chunk)
-#             DtN_arr.append(DtN_arr_chunk)
-#             v_arr.append(v_chunk)
-#             v_prime_arr.append(v_prime_chunk)
-
-#     # Concatenate all of the chunks
-#     Y_arr = jnp.concatenate(Y_arr, axis=0)
-#     DtN_arr = jnp.concatenate(DtN_arr, axis=0)
-#     v_arr = jnp.concatenate(v_arr, axis=0)
-#     v_prime_arr = jnp.concatenate(v_prime_arr, axis=0)
-#     return Y_arr, DtN_arr, v_arr, v_prime_arr
-
-
 def _local_solve_stage_2D_ItI(
     D_xx: jnp.ndarray,
     D_xy: jnp.ndarray,
@@ -494,40 +340,49 @@ def _local_solve_stage_2D_ItI(
     I_coeffs: jnp.ndarray | None = None,
     device: jax.Device = DEVICE_ARR[0],
     host_device: jax.Device = HOST_DEVICE,
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     """
-    Performs the local solve stage for all of the leaves in the 2D domain.
+    Performs the local solve stage for the 2D ItI version of the HPS method.
+
+    This function is written to adapt to multiple source terms along a third dimension of the source_term array.
+    If source_term has two dimensions, the number of source terms is assumed to be = 1.
 
     Args:
-        D_xx (jnp.ndarray): Precomputed differential operator with shape (p**2, p**2).
-        D_xy (jnp.ndarray): Precomputed differential operator with shape (p**2, p**2).
-        D_yy (jnp.ndarray): Precomputed differential operator with shape (p**2, p**2).
-        D_x (jnp.ndarray): Precomputed differential operator with shape (p**2, p**2).
-        D_y (jnp.ndarray): Precomputed differential operator with shape (p**2, p**2).
-        I_P_0 (jnp.ndarray): Precomputed interpolation operator with shape (4(p-1), 4q).
-            Maps data on the Gauss boundary nodes to data on the Cheby boundary nodes.
-            Is formed by taking the kronecker product of I and P_0, which is the standard
-            Gauss -> Cheby 1D interp matrix missing the last row.
-        Q_D (jnp.ndarray): Precomputed interpolation operator with shape (4q, p**2).
-            Maps functions on the boundary Cheby nodes (counting corners twice) to functions on the
-            boundary Gauss nodes.
-        G (jnp.ndarray): Precomputed differentiation operator with shape (4q, p**2).
-            Maps a function on the Chebyshev nodes to the function's outgoing impedance
-            on the boundary Cheby nodes, counting corners twice.
-        F (jnp.ndarray): Precomputed differentiation operator with shape (4(p-1), p**2).
-            Maps a function on the Chebyshev nodes to the function's incoming impedance
-            on the boundary Cheby nodes, counting corners once.
-        p (int): Shape parameter. Number of Chebyshev nodes along one dimension in a leaf.
-        source_term (jnp.ndarray): Has shape (n_leaves, p**2, n_src). The right-hand side of the PDE.
-        D_xx_coeffs (jnp.ndarray | None, optional): Has shape (n_leaves, p**2). Defaults to None, which means zero coeffs.
-        D_xy_coeffs (jnp.ndarray | None, optional): Has shape (n_leaves, p**2). Defaults to None, which means zero coeffs.
-        D_yy_coeffs (jnp.ndarray | None, optional): Has shape (n_leaves, p**2). Defaults to None, which means zero coeffs.
-        D_x_coeffs (jnp.ndarray | None, optional): Has shape (n_leaves, p**2). Defaults to None, which means zero coeffs.
-        D_y_coeffs (jnp.ndarray | None, optional): Has shape (n_leaves, p**2). Defaults to None, which means zero coeffs.
-        I_coeffs (jnp.ndarray | None, optional): Has shape (n_leaves, p**2). Defaults to None, which means zero coeffs.
+        D_xx (jnp.ndarray): Precomputed Chebyshev differentiation operator. Expected to be pre-scaled to
+            match the sidelength of the leaves. Has shape (p^2, p^2)
+        D_xy (jnp.ndarray): Precomputed Chebyshev differentiation operator. Expected to be pre-scaled to
+            match the sidelength of the leaves. Has shape (p^2, p^2)
+        D_yy (jnp.ndarray): Precomputed Chebyshev differentiation operator. Expected to be pre-scaled to
+            match the sidelength of the leaves. Has shape (p^2, p^2)
+        D_x (jnp.ndarray): Precomputed Chebyshev differentiation operator. Expected to be pre-scaled to
+            match the sidelength of the leaves. Has shape (p^2, p^2)
+        D_y (jnp.ndarray): Precomputed Chebyshev differentiation operator. Expected to be pre-scaled to
+            match the sidelength of the leaves. Has shape (p^2, p^2)
+        I_P_0 (jnp.ndarray): Precomputed interpolation operator from Gauss boundary points to Cheby boundary points.
+            Has shape (4(p-1), 4q)
+        Q_I (jnp.ndarray): Precomputed interpolation operator from Cheby boundary points to Gauss boundary points.
+            Has shape (4q, 4p)
+        F (jnp.ndarray): Precomputed interpolation/differentiation operator for constructing incoming impedance.
+            Has shape (4p, p^2)
+        G (jnp.ndarray): Precomputed interpolation/differentiation operator for constructing outgoing impedance.
+            Has shape (4(p-1), p^2)
+        p (int): Chebyshev parameter.
+        source_term (jnp.ndarray): Has shape (n_leaves, p^2) OR (n_leaves, p^2, n_src).
+        D_xx_coeffs (jnp.ndarray | None, optional): Diff operator coefficients. If specified, has shape (n_leaves, p^2). Defaults to None.
+        D_xy_coeffs (jnp.ndarray | None, optional): Diff operator coefficients. If specified, has shape (n_leaves, p^2). Defaults to None.
+        D_yy_coeffs (jnp.ndarray | None, optional): Diff operator coefficients. If specified, has shape (n_leaves, p^2). Defaults to None.
+        D_x_coeffs (jnp.ndarray | None, optional): Diff operator coefficients. If specified, has shape (n_leaves, p^2). Defaults to None.
+        D_y_coeffs (jnp.ndarray | None, optional): Diff operator coefficients. If specified, has shape (n_leaves, p^2). Defaults to None.
+        I_coeffs (jnp.ndarray | None, optional): Diff operator coefficients. If specified, has shape (n_leaves, p^2). Defaults to None.
+        device (jax.Device, optional): Device on which to perform the computation. Defaults to DEVICE_ARR[0].
+        host_device (jax.Device, optional): Device on which the output data should be located. Defaults to HOST_DEVICE.
 
     Returns:
-        Tuple[jnp.ndarray, jnp.ndarray]: _description_
+        Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+          - R_arr_host: (jnp.ndarray): The ItI matrices. Has shape (n_leaves // 4, 4, 4q, 4q)
+          - Y_arr_host: (jnp.ndarray): The interior solution matrices. Has shape (n_leaves, p^2, 4q)
+          - outgoing_part_impedance_arr_host: (jnp.ndarray): The outgoing impedance data. Has shape (n_leaves // 4, 4, 4q, n_src)
+          - part_soln_arr_host: (jnp.ndarray): The particular solution(s). Has shape (n_leaves, 4q, n_src)
     """
     logging.debug("_local_solve_stage_2D_ItI: started")
 
@@ -563,10 +418,12 @@ def _local_solve_stage_2D_ItI(
         coeffs_gathered, which_coeffs, diff_ops
     )
 
-    # TODO: Expand the code to work with multiple sources.
     # Make sure source term has shape (n_leaves, p**2, n_src)
     if len(source_term.shape) == 2:
         source_term = jnp.expand_dims(source_term, axis=-1)
+    logging.debug(
+        "_local_solve_stage_2D_ItI: source_term shape = %s", source_term.shape
+    )
 
     R_arr, Y_arr, outgoing_part_impedance_arr, part_soln_arr = (
         vmapped_get_ItI_then_rearrange(
@@ -582,12 +439,10 @@ def _local_solve_stage_2D_ItI(
     R_arr_host = jax.device_put(R_arr, host_device)
     Y_arr_host = jax.device_put(Y_arr, host_device)
 
-    # The indexing on the last axis is to take away the multi-source dimension
-    # TODO: Expand the code to work with multiple sources.
     outgoing_part_impedance_arr_host = jax.device_put(
         outgoing_part_impedance_arr, host_device
-    )[..., 0]
-    part_soln_arr_host = jax.device_put(part_soln_arr, host_device)[..., 0]
+    )
+    part_soln_arr_host = jax.device_put(part_soln_arr, host_device)
 
     return R_arr_host, Y_arr_host, outgoing_part_impedance_arr_host, part_soln_arr_host
 

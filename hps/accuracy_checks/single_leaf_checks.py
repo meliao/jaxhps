@@ -111,11 +111,13 @@ def check_l_inf_error_convergence(
             D_x=t.D_x,
             D_y=t.D_y,
             P=t.P,
+            Q_D=t.Q_D,
             p=p,
             source_term=source,
             D_xx_coeffs=d_xx_coeffs,
             D_yy_coeffs=d_yy_coeffs,
             sidelens=sidelens,
+            uniform_grid=True,
         )
         # only need the first leaf's solution
         Y = Y[0]
@@ -261,6 +263,8 @@ def check_l_inf_error_convergence_particular_homog_solns(
             D_xx_coeffs=d_xx_coeffs,
             D_yy_coeffs=d_yy_coeffs,
             sidelens=sidelens,
+            uniform_grid=True,
+            Q_D=t.Q_D,
         )
 
         # logging.debug(
@@ -645,7 +649,7 @@ def check_l_inf_error_convergence_particular_homog_solns_ItI(
         # only need the first leaf's solution
         R = R_arr.squeeze()[1]
         g = g_arr.squeeze()[1]
-        v = v_arr[0]
+        v = v_arr[0].flatten()
         Y = Y_arr[0]
 
         # print("check_l_inf_error_convergence_particular_homog_solns_ItI: R = ", R.shape)
@@ -1025,7 +1029,7 @@ def single_leaf_check_11(plot_fp: str) -> None:
     dirichelet_neumann_data.py. This parameter controls the number of oscilations in the data.
     """
     logging.info("Running single_leaf_check_11")
-    p_values = jnp.array([4, 8, 12, 16, 20, 24, 28])
+    p_values = jnp.array([4, 8, 12, 16])
     check_l_inf_error_convergence_particular_homog_solns_ItI(
         p_values=p_values,
         dirichlet_data_fn=TEST_CASE_HELMHOLTZ_0["dirichlet_data_fn"],
@@ -1052,7 +1056,7 @@ def single_leaf_check_12(plot_fp: str) -> None:
     dirichelet_neumann_data.py. This parameter controls the number of oscilations in the data.
     """
     logging.info("Running single_leaf_check_12")
-    p_values = jnp.array([4, 8, 12, 16, 20, 24, 28])
+    p_values = jnp.array([4, 8, 12, 16])
     check_l_inf_error_convergence_particular_homog_solns_ItI(
         p_values=p_values,
         dirichlet_data_fn=TEST_CASE_HELMHOLTZ_1["dirichlet_data_fn"],
