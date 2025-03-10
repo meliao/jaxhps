@@ -30,24 +30,24 @@ from hps.src.config import (
 
 
 def _fused_local_solve_and_build_2D(
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    P: jnp.ndarray,
-    Q_D: jnp.array,
-    sidelens: jnp.ndarray,
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    P: jax.Array,
+    Q_D: jax.Array,
+    sidelens: jax.Array,
     l: int,
     p: int,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
-    bdry_data: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
+    bdry_data: jax.Array | None = None,
     host_device: jax.Device = HOST_DEVICE,
 ) -> None:
 
@@ -230,31 +230,32 @@ def _fused_local_solve_and_build_2D(
 
 
 def _fused_local_solve_and_build_2D_ItI(
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    I_P_0: jnp.ndarray,
-    Q_I: jnp.ndarray,
-    F: jnp.ndarray,
-    G: jnp.ndarray,
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    I_P_0: jax.Array,
+    Q_I: jax.Array,
+    F: jax.Array,
+    G: jax.Array,
     p: int,
     l: int,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
-    bdry_data: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
+    bdry_data: jax.Array | None = None,
     device: jax.Device = DEVICE_ARR[0],
     host_device: jax.Device = HOST_DEVICE,
 ):
 
     # Get the fused chunksize
     n_leaves = source_term.shape[0]
+    n_src = source_term.shape[-1]
     chunksize, n_levels_fused = get_fused_chunksize_2D(p, jnp.complex128, n_leaves)
     n_chunks = n_leaves // chunksize
     logging.debug(
@@ -383,8 +384,9 @@ def _fused_local_solve_and_build_2D_ItI(
                 device=DEVICE_ARR[0],
             )
             # compute interior solutions with Y matrices
-            bdry_data_o = bdry_data_o.reshape((-1, bdry_data_o.shape[-1]))
-            h_soln_chunk = jnp.einsum("ijk,ik->ij", Y_arr_chunk, bdry_data_o)
+            _, _, b, c = bdry_data_o.shape
+            bdry_data_o = bdry_data_o.reshape((-1, b, c))
+            h_soln_chunk = jnp.einsum("ijk,ikl->ijl", Y_arr_chunk, bdry_data_o)
             soln_chunk = h_soln_chunk + v_chunk  # TODO: Fix this for multi-source code.
 
             # Append the solution to the output list
@@ -423,7 +425,7 @@ def _fused_local_solve_and_build_2D_ItI(
         n_merges, n, _ = R_arr.shape
 
         R_arr = R_arr.reshape((n_merges // 4, 4, n, n))
-        h_arr = h_arr.reshape((n_merges // 4, 4, n))
+        h_arr = h_arr.reshape((n_merges // 4, 4, n, n_src))
         # print("_fused_local_solve_and_build_2D_ItI: R_arr shape: ", R_arr.shape)
         # print("_fused_local_solve_and_build_2D_ItI: h_arr shape: ", h_arr.shape)
 
@@ -446,28 +448,28 @@ def _fused_local_solve_and_build_2D_ItI(
 
 
 def _down_pass_from_fused(
-    bdry_data: jnp.array,
-    S_arr_lst: List[jnp.array],
-    v_int_lst: List[jnp.array],
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    P: jnp.ndarray,
-    Q_D: jnp.array,
-    sidelens: jnp.ndarray,
+    bdry_data: jax.Array,
+    S_arr_lst: List[jax.Array],
+    v_int_lst: List[jax.Array],
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    P: jax.Array,
+    Q_D: jax.Array,
+    sidelens: jax.Array,
     l: int,
     p: int,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
     device: jax.Device = DEVICE_ARR[0],
-) -> jnp.array:
+) -> jax.Array:
 
     # First do a partial down pass
     bdry_data = _partial_down_pass(
@@ -504,12 +506,12 @@ def _down_pass_from_fused(
 
 
 def _partial_down_pass(
-    bdry_data: jnp.array,
-    S_arr_lst: List[jnp.array],
-    v_int_lst: List[jnp.array],
+    bdry_data: jax.Array,
+    S_arr_lst: List[jax.Array],
+    v_int_lst: List[jax.Array],
     device: jax.Device = DEVICE_ARR[0],
     host_device: jax.Device = HOST_DEVICE,
-) -> jnp.array:
+) -> jax.Array:
     bdry_data = jax.device_put(bdry_data, device)
     S_arr_lst = [jax.device_put(S, device) for S in S_arr_lst]
     v_int_lst = [jax.device_put(v_int, device) for v_int in v_int_lst]
@@ -555,27 +557,27 @@ def _partial_down_pass(
 
 
 def _down_pass_from_fused_ItI(
-    bdry_data: jnp.array,
-    S_arr_lst: List[jnp.array],
-    f_lst: List[jnp.array],
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    I_P_0: jnp.ndarray,
-    Q_I: jnp.ndarray,
-    F: jnp.ndarray,
-    G: jnp.ndarray,
+    bdry_data: jax.Array,
+    S_arr_lst: List[jax.Array],
+    f_lst: List[jax.Array],
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    I_P_0: jax.Array,
+    Q_I: jax.Array,
+    F: jax.Array,
+    G: jax.Array,
     l: int,
     p: int,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
     device: jax.Device = DEVICE_ARR[0],
 ) -> None:
 
@@ -621,11 +623,11 @@ def _down_pass_from_fused_ItI(
 
 
 def _partial_down_pass_ItI(
-    boundary_imp_data: jnp.ndarray,
-    S_maps_lst: List[jnp.ndarray],
-    f_lst: List[jnp.ndarray],
+    boundary_imp_data: jax.Array,
+    S_maps_lst: List[jax.Array],
+    f_lst: List[jax.Array],
     device: jax.Device = DEVICE_ARR[0],
-) -> jnp.ndarray:
+) -> jax.Array:
 
     n_levels = len(S_maps_lst)
     # if boundary_imp_data.ndim == 1:
@@ -633,13 +635,16 @@ def _partial_down_pass_ItI(
     # else:
     #     bdry_data = boundary_imp_data
     bdry_data = boundary_imp_data
+
+    if bdry_data.ndim == 1:
+        bdry_data = jnp.expand_dims(bdry_data, axis=-1)
     # print("_partial_down_pass_ItI: bdry_data shape: ", bdry_data.shape)
 
     # Propogate the Dirichlet data down the tree using the S maps.
     for level in range(n_levels - 1, -1, -1):
-        n_bdry = bdry_data.shape[-1]
+        n_bdry, n_src = bdry_data.shape[-2:]
 
-        bdry_data = bdry_data.reshape((-1, n_bdry))
+        bdry_data = bdry_data.reshape((-1, n_bdry, n_src))
 
         S_arr = S_maps_lst[level]
         f = f_lst[level]
@@ -656,25 +661,25 @@ def _partial_down_pass_ItI(
 
 
 def _fused_all_single_chunk(
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    P: jnp.ndarray,
-    Q_D: jnp.array,
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    P: jax.Array,
+    Q_D: jax.Array,
     l: int,
-    source_term: jnp.ndarray,
-    sidelens: jnp.array,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
-    bdry_data: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    sidelens: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
+    bdry_data: jax.Array | None = None,
     host_device: jax.Device = DEVICE_ARR[0],
-) -> jnp.array:
+) -> jax.Array:
 
     p = (P.shape[0] // 4) + 1
 
@@ -717,27 +722,27 @@ def _fused_all_single_chunk(
 
 
 def _fused_all_single_chunk_ItI(
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    I_P_0: jnp.ndarray,
-    Q_I: jnp.ndarray,
-    F: jnp.ndarray,
-    G: jnp.ndarray,
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    I_P_0: jax.Array,
+    Q_I: jax.Array,
+    F: jax.Array,
+    G: jax.Array,
     l: int,
     p: int,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
-    bdry_data: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
+    bdry_data: jax.Array | None = None,
     host_device: jax.Device = DEVICE_ARR[0],
-) -> jnp.array:
+) -> jax.Array:
 
     R_arr, Y_arr, h_arr, v_arr = _local_solve_stage_2D_ItI(
         D_xx=D_xx,
@@ -768,7 +773,13 @@ def _fused_all_single_chunk_ItI(
 
     # Do down pass
     bdry_data = _partial_down_pass_ItI(bdry_data, S_arr_lst, f_arr_lst)
-    bdry_data = bdry_data.reshape(-1, bdry_data.shape[-1])
+
+    _, _, b, n_src = bdry_data.shape
+    bdry_data = bdry_data.reshape((-1, b, n_src))
+
+    logging.debug("_fused_all_single_chunk_ItI: Y_arr shape: %s", Y_arr.shape)
+    logging.debug("_fused_all_single_chunk_ItI: bdry_data shape: %s", bdry_data.shape)
+    logging.debug("_fusion_all_single_chunk_ItI: v_arr shape: %s", v_arr.shape)
 
     # Compute homogeneous solution
     logging.debug(
@@ -776,31 +787,31 @@ def _fused_all_single_chunk_ItI(
         Y_arr.shape,
         bdry_data.shape,
     )
-    h_soln = jnp.einsum("ijk,ik->ij", Y_arr, bdry_data)
+    h_soln = jnp.einsum("ijk,ikl->ijl", Y_arr, bdry_data)
     soln = h_soln + v_arr  # TODO: Fix this for multi-source code.
     return jax.device_put(soln, host_device)
 
 
 def _baseline_recomputation_upward_pass(
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    P: jnp.ndarray,
-    Q_D: jnp.array,
-    sidelens: jnp.array,
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    P: jax.Array,
+    Q_D: jax.Array,
+    sidelens: jax.Array,
     l: int,
     p: int,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
     host_device: jax.Device = HOST_DEVICE,
-) -> Tuple[List[jnp.array], List[jnp.array]]:
+) -> Tuple[List[jax.Array], List[jax.Array]]:
 
     # Get the fused chunksize
     n_leaves = source_term.shape[0]
@@ -900,28 +911,28 @@ def _baseline_recomputation_upward_pass(
 
 
 def _baseline_recomputation_downward_pass(
-    D_xx: jnp.ndarray,
-    D_xy: jnp.ndarray,
-    D_yy: jnp.ndarray,
-    D_x: jnp.ndarray,
-    D_y: jnp.ndarray,
-    P: jnp.ndarray,
-    Q_D: jnp.array,
-    sidelens: jnp.ndarray,
+    D_xx: jax.Array,
+    D_xy: jax.Array,
+    D_yy: jax.Array,
+    D_x: jax.Array,
+    D_y: jax.Array,
+    P: jax.Array,
+    Q_D: jax.Array,
+    sidelens: jax.Array,
     l: int,
     p: int,
-    source_term: jnp.ndarray,
-    S_arr_lst: List[jnp.array],
-    v_int_lst: List[jnp.array],
-    bdry_data: jnp.array,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    S_arr_lst: List[jax.Array],
+    v_int_lst: List[jax.Array],
+    bdry_data: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
     host_device: jax.Device = HOST_DEVICE,
-) -> Tuple[List[jnp.array], List[jnp.array]]:
+) -> Tuple[List[jax.Array], List[jax.Array]]:
 
     bdry_data = jax.device_put(bdry_data, DEVICE_ARR[0])
     # Do a partial down pass

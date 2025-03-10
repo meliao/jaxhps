@@ -1,4 +1,4 @@
-"""Utility functions for implementing the wave scattering solver presented in the 
+"""Utility functions for implementing the wave scattering solver presented in the
 Gillman, Barnett, Martinsson paper."""
 
 from typing import Tuple, Callable
@@ -206,14 +206,20 @@ def get_scattering_uscat_impedance(
     A, b = setup_scattering_lin_system(
         S=S, D=D, T_int=T, gauss_bdry_pts=bdry_pts, k=k, source_directions=source_dirs
     )
+    # logging.debug("get_scattering_uscat_impedance: A shape: %s", A.shape)
+    # logging.debug("get_scattering_uscat_impedance: b shape: %s", b.shape)
     cond = jnp.linalg.cond(A)
-    b = b.flatten()
+    # b = b.flatten()
     uin, uin_dn = get_uin_and_normals(k, bdry_pts, source_dirs)
-    uin = uin[:, 0]
-    uin_dn = uin_dn[:, 0]
+    uin = uin
+    uin_dn = uin_dn
 
     # Solve the lin system to get uscat on the boundary
     uscat = jnp.linalg.solve(A, b)
+
+    # logging.debug("get_scattering_uscat_impedance: uscat shape: %s", uscat.shape)
+    # logging.debug("get_scattering_uscat_impedance: uin shape: %s", uin.shape)
+    # logging.debug("get_scattering_uscat_impedance: uin_dn shape: %s", uin_dn.shape)
 
     # Eqn 1.12 from the Gillman, Barnett, Martinsson paper
     uscat_dn = T @ (uscat + uin) - uin_dn
@@ -272,9 +278,11 @@ def solve_scattering_problem(
     i_term = k**2 * (1 + q_fn(t.leaf_cheby_points))
     logging.debug("solve_scattering_problem: i_term shape: %s", i_term.shape)
 
-    uin_evals = get_uin(k, t.leaf_cheby_points, source_dirs)[:, :, 0]
+    uin_evals = get_uin(k, t.leaf_cheby_points, source_dirs)
 
-    source_term = -1 * (k**2) * q_fn(t.leaf_cheby_points) * uin_evals
+    source_term = (
+        -1 * (k**2) * jnp.expand_dims(q_fn(t.leaf_cheby_points), -1) * uin_evals
+    )
     logging.debug("solve_scattering_problem: source_term shape: %s", source_term.shape)
 
     logging.debug("solve_scattering_problem: S device: %s", S.devices())
@@ -351,34 +359,34 @@ def solve_scattering_problem(
     uscat_soln = interior_solns
 
     # Measure consistency with the PDE
-    diff_op = t.D_xx + t.D_yy
-    logging.debug("solve_scattering_problem: diff_op shape: %s", diff_op.shape)
-    logging.debug("solve_scattering_problem: uscat_soln shape: %s", uscat_soln.shape)
-    # Measure PDE residual normalized by k**2
-    lap_u = 1 / (k**2) * jnp.einsum("ij,kj->ki", diff_op, uscat_soln)
-    inhomogeneous_term = (1 + q_fn(t.leaf_cheby_points)) * uscat_soln
-    source_term = -1 * q_fn(t.leaf_cheby_points) * uin_evals
-    pde_error = lap_u + inhomogeneous_term - source_term
-    logging.info(
-        "solve_scattering_problem: Normalized PDE error: %s",
-        jnp.max(jnp.abs(pde_error)),
-    )
+    # diff_op = t.D_xx + t.D_yy
+    # logging.debug("solve_scattering_problem: diff_op shape: %s", diff_op.shape)
+    # logging.debug("solve_scattering_problem: uscat_soln shape: %s", uscat_soln.shape)
+    # # Measure PDE residual normalized by k**2
+    # lap_u = 1 / (k**2) * jnp.einsum("ij,kj->ki", diff_op, uscat_soln)
+    # inhomogeneous_term = (1 + q_fn(t.leaf_cheby_points)) * uscat_soln
+    # source_term = -1 * q_fn(t.leaf_cheby_points) * uin_evals
+    # pde_error = lap_u + inhomogeneous_term - source_term
+    # logging.info(
+    #     "solve_scattering_problem: Normalized PDE error: %s",
+    #     jnp.max(jnp.abs(pde_error)),
+    # )
 
-    # Measure PDE residual un-normalized
-    lap_u = jnp.einsum("ij,kj->ki", diff_op, uscat_soln)
-    inhomogeneous_term = k**2 * (1 + q_fn(t.leaf_cheby_points)) * uscat_soln
+    # # Measure PDE residual un-normalized
+    # lap_u = jnp.einsum("ij,kj->ki", diff_op, uscat_soln)
+    # inhomogeneous_term = k**2 * (1 + q_fn(t.leaf_cheby_points)) * uscat_soln
 
-    if return_utot:
-        uscat_soln += uin_evals
-        logging.debug(
-            "solve_scattering_problem: uscat_soln device: %s", uscat_soln.devices()
-        )
-    source_term = -1 * k**2 * q_fn(t.leaf_cheby_points) * uin_evals
-    pde_error_unnorm = lap_u + inhomogeneous_term - source_term
-    logging.info(
-        "solve_scattering_problem: Un-normalized PDE error: %s",
-        jnp.max(jnp.abs(pde_error_unnorm)),
-    )
+    # if return_utot:
+    #     uscat_soln += uin_evals
+    #     logging.debug(
+    #         "solve_scattering_problem: uscat_soln device: %s", uscat_soln.devices()
+    #     )
+    # source_term = -1 * k**2 * q_fn(t.leaf_cheby_points) * uin_evals
+    # pde_error_unnorm = lap_u + inhomogeneous_term - source_term
+    # logging.info(
+    #     "solve_scattering_problem: Un-normalized PDE error: %s",
+    #     jnp.max(jnp.abs(pde_error_unnorm)),
+    # )
 
     # Interpolate the solution onto a regular grid with n points per dimension
     if interp_xmin is None:

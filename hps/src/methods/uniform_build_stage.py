@@ -253,17 +253,22 @@ def _uniform_build_stage_2D_ItI(
     host_device: jax.Device = HOST_DEVICE,
     return_fused_info: bool = False,
 ) -> Tuple[List[jnp.ndarray], List[jnp.ndarray], List[jnp.ndarray]]:
-    """Implements the upward pass for merging ItI maps
+    """
+    Computes l levels of uniform ItI merging.
 
     Args:
-        R_maps (jnp.ndarray): Has shape (n_merge_pairs, 2, p**2, p**2)
-        f_arr (jnp.ndarray): Has shape (n_merge_pairs, 2, 4*q)
+        R_maps (jnp.ndarray): ItI matrices. Has shape (n_leaves // 4, 4, 4q, 4q)
+        h_arr (jnp.ndarray): Outgoing particular impedance data. Has shape (n_leaves // 4, 4, 4q, n_src)
+        l (int): Number of levels to merge.
+        device (jax.Device, optional): Device on which to run the computation. Defaults to DEVICE_ARR[0].
+        host_device (jax.Device, optional): Device on which to return the outputs. Defaults to HOST_DEVICE.
+        return_fused_info (bool, optional): If True, return values are different. Defaults to False.
 
     Returns:
-        Tuple[List[jnp.ndarray], List[jnp.ndarray], List[jnp.ndarray]]: S_arr, DtN_arr, f_arr.
-            S_arr is a list of arrays containing the S maps for each level.
-            R_arr is a list of arrays containing the ItI maps for each level.
-            f_arr is a list of arrays containing the interface particular soln incoming impedance data for each level.
+        Tuple[List[jnp.ndarray], List[jnp.ndarray], List[jnp.ndarray]]:
+          - S_lst (List[jnp.ndarray]): List of S matrices, which propagate info from boundary to merge interfaces.
+          - R_lst (List[jnp.ndarray]): List of ItI matrices.
+          - h_lst (List[jnp.ndarray]): List of outgoing particular impedance vectors.
     """
     logging.debug("_build_stage_2D_ItI: started")
     # logging.debug("_build_stage_2D_ItI: input R_maps.device %s", R_maps.devices())
@@ -324,15 +329,10 @@ def _uniform_build_stage_2D_ItI(
         h_arr[0, 3],
     )
 
-    # h_last = jnp.expand_dims(h_last, axis=-1)
-    # print("_build_stage: T_last shape: ", T_last.shape)
-    # print("_build_stage: v_int_last shape: ", v_int_last.shape)
-
     R_lst.append(jax.device_put(R_last, host_device))
     S_lst.append(jax.device_put(jnp.expand_dims(S_last, axis=0), host_device))
     f_lst.append(jax.device_put(jnp.expand_dims(f_last, axis=0), host_device))
 
-    # logging.debug("_build_stage: done with merging.")
     return S_lst, R_lst, f_lst
 
 
@@ -635,8 +635,35 @@ def _uniform_quad_merge_ItI(
     h_c: jnp.array,
     h_d: jnp.array,
 ) -> Tuple[jnp.array, jnp.array, jnp.array, jnp.array]:
+    """
+    Performs an ItI quad merge. Nodes are arranged like this:
 
-    # print("_quad_merge_ItI: h_a", h_a.shape)
+    ----------
+    | d | c |
+    | a | b |
+    ----------
+
+    Assume each child node has n_child discretization points
+    around its boundary.
+
+    Args:
+        R_a (jnp.array): ItI matrix of node a. Has shape (n_child, n_child).
+        R_b (jnp.array): ItI matrix of node b. Has shape (n_child, n_child).
+        R_c (jnp.array): ItI matrix of node c. Has shape (n_child, n_child).
+        R_d (jnp.array): ItI matrix of node d. Has shape (n_child, n_child).
+        h_a (jnp.array): Outgoing particular impedance of node a. Has shape (n_child, n_src).
+        h_b (jnp.array): Outgoing particular impedance of node b. Has shape (n_child, n_src).
+        h_c (jnp.array): Outgoing particular impedance of node c. Has shape (n_child, n_src).
+        h_d (jnp.array): Outgoing particular impedance of node d. Has shape (n_child, n_src).
+
+    Returns:
+        Tuple[jnp.array, jnp.array, jnp.array, jnp.array]:
+         - S (jnp.array): Operator which propagates info from boundary to merge interfaces. Has shape (n_child, 2*n_child)
+         - R (jnp.array): ItI matrix of merged node. Has shape (2*n_child, 2*n_child)
+         - h (jnp.array): Outgoing part. impedance data of merged nodes. Has shape (2*n_child, n_src)
+         - f (jnp.array): Incoming part. impedance data evaluated at merge interfaces. Has shape (n_child, n_src).
+    """
+
     # First, find all of the necessary submatrices and sub-vectors
     (
         h_a_1,
@@ -895,6 +922,7 @@ def vmapped_uniform_quad_merge_ItI(
     R_in: jnp.array,
     h_in: jnp.array,
 ) -> Tuple[jnp.array, jnp.array, jnp.array, jnp.array]:
+    n_src = h_in.shape[-1]
     S, R, h, f = _vmapped_uniform_quad_merge_ItI(
         R_in[:, 0],
         R_in[:, 1],
@@ -908,5 +936,5 @@ def vmapped_uniform_quad_merge_ItI(
 
     n_merges, n_int, n_ext = S.shape
     R = R.reshape((n_merges // 4, 4, n_ext, n_ext))
-    h = h.reshape((n_merges // 4, 4, n_ext))
+    h = h.reshape((n_merges // 4, 4, n_ext, n_src))
     return S, R, h, f

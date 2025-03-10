@@ -313,6 +313,14 @@ def interp_from_nonuniform_hps_to_regular_grid(
     ymin = root.ymin
     ymax = root.ymax
 
+    # If the input has multiple dimensions, we need to remember the shape
+    # so we can reshape the output back to the correct shape.
+    if f_evals.ndim > 2:
+        f_evals_shape = f_evals.shape
+        bool_multi_source = True
+    else:
+        bool_multi_source = False
+
     # Create the regular grid
     x = jnp.linspace(xmin, xmax, n_pts, endpoint=False, dtype=jnp.float64)
     y = jnp.linspace(ymin, ymax, n_pts, endpoint=False, dtype=jnp.float64)
@@ -363,7 +371,11 @@ def interp_from_nonuniform_hps_to_regular_grid(
     vals = vmapped_interp_to_point(
         xvals_for_vmap, yvals_for_vmap, corners_for_vmap, f_for_vmap, p
     )
-    return vals.reshape(n_pts, n_pts), target_pts
+    if bool_multi_source:
+        vals = vals.reshape(n_pts, n_pts, f_evals_shape[2])
+    else:
+        vals = vals.reshape(n_pts, n_pts)
+    return vals, target_pts
 
 
 @partial(jax.jit, static_argnums=(4,))

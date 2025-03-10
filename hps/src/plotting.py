@@ -85,20 +85,6 @@ def plot_func_with_grid(
     plt.close(fig)
 
 
-def get_discrete_cmap(N: int, cmap: str) -> cm.ScalarMappable:
-    """
-    Create an N-bin discrete colormap from the specified input map
-    """
-    cmap = plt.get_cmap(cmap)
-
-    # If it's plasma, go 0 to 0.8
-    if cmap.name == "plasma":
-        return cmap(np.linspace(0, 0.8, N))
-    else:
-
-        return cmap(np.linspace(0, 1, N))
-
-
 # https://stackoverflow.com/questions/34859628/has-someone-made-the-parula-colormap-in-matplotlib
 cm_data = [
     [0.2081, 0.1663, 0.5292],
@@ -371,6 +357,9 @@ def plot_field_for_wave_scattering_experiment(
     title: str = None,
     save_fp: str = None,
     ax: plt.Axes = None,
+    dpi: int = None,
+    minval: float = None,
+    maxval: float = None,
 ) -> None:
     """
     Expect field to have shape (n,n) and target_pts to have shape (n, n, 2).
@@ -393,6 +382,13 @@ def plot_field_for_wave_scattering_experiment(
         "plot_field_for_wave_scattering_experiment: min_val: %s", jnp.min(field)
     )
 
+    if minval is not None:
+        vmin = minval
+        vmax = maxval
+    else:
+        vmin = jnp.min(field)
+        vmax = jnp.max(field)
+
     if use_bwr_cmap:
         max_val = jnp.max(jnp.abs(field))
 
@@ -410,8 +406,8 @@ def plot_field_for_wave_scattering_experiment(
             field,
             cmap=cmap_str,
             extent=extent,
-            vmin=-3.65,  # Min val of the fields we plot in the paper
-            vmax=3.65,
+            vmin=vmin,
+            vmax=vmax,
         )
     plt.colorbar(im, ax=ax)
 
@@ -420,4 +416,10 @@ def plot_field_for_wave_scattering_experiment(
 
     if bool_create_ax:
         if save_fp is not None:
-            plt.savefig(save_fp, bbox_inches="tight")
+            if save_fp.endswith(".png"):
+                plt.savefig(
+                    save_fp,
+                    dpi=dpi,
+                )
+            else:
+                plt.savefig(save_fp, bbox_inches="tight")

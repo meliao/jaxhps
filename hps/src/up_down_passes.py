@@ -64,29 +64,29 @@ from hps.src.config import (
 
 def fused_pde_solve_2D(
     t: SolverObj,
-    boundary_data: jnp.ndarray,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    boundary_data: jax.Array,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
 ) -> None:
     """_summary_
 
     Args:
         t (SolverObj): _description_
-        source_term (jnp.ndarray): _description_
-        D_xx_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_xy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_yy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_xz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_yz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_zz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_x_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_y_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_z_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
+        source_term (jax.Array): _description_
+        D_xx_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_xy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_yy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_xz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_yz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_zz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_x_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_y_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_z_coeffs (jax.Array | None, optional): _description_. Defaults to None.
     """
     chunksize, _ = get_fused_chunksize_2D(t.p, source_term.dtype, 4**t.l)
     if chunksize == 4**t.l:
@@ -160,29 +160,29 @@ def fused_pde_solve_2D(
 
 def fused_pde_solve_2D_ItI(
     t: SolverObj,
-    boundary_data: jnp.ndarray,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    boundary_data: jax.Array,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
 ) -> None:
     """_summary_
 
     Args:
         t (Tree): _description_
-        source_term (jnp.ndarray): _description_
-        D_xx_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_xy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_yy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_xz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_yz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_zz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_x_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_y_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_z_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
+        source_term (jax.Array): _description_
+        D_xx_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_xy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_yy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_xz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_yz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_zz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_x_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_y_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_z_coeffs (jax.Array | None, optional): _description_. Defaults to None.
     """
     chunksize, _ = get_fused_chunksize_2D(t.p, source_term.dtype, 4**t.l)
     if chunksize == 4**t.l:
@@ -260,29 +260,29 @@ def fused_pde_solve_2D_ItI(
 
 def baseline_pde_solve_2D(
     t: SolverObj,
-    boundary_data: jnp.ndarray,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    boundary_data: jax.Array,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
 ) -> None:
     """_summary_
 
     Args:
         t (Tree): _description_
-        source_term (jnp.ndarray): _description_
-        D_xx_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_xy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_yy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_xz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_yz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_zz_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_x_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_y_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_z_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
+        source_term (jax.Array): _description_
+        D_xx_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_xy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_yy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_xz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_yz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_zz_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_x_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_y_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_z_coeffs (jax.Array | None, optional): _description_. Defaults to None.
     """
     chunksize, _ = get_fused_chunksize_2D(t.p, source_term.dtype, 4**t.l)
     if chunksize == 4**t.l:
@@ -356,17 +356,17 @@ def baseline_pde_solve_2D(
 
 def local_solve_stage(
     t: SolverObj,
-    source_term: jnp.ndarray,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_xz_coeffs: jnp.ndarray | None = None,
-    D_yz_coeffs: jnp.ndarray | None = None,
-    D_zz_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
-    D_z_coeffs: jnp.ndarray | None = None,
-    I_coeffs: jnp.ndarray | None = None,
+    source_term: jax.Array,
+    D_xx_coeffs: jax.Array | None = None,
+    D_xy_coeffs: jax.Array | None = None,
+    D_yy_coeffs: jax.Array | None = None,
+    D_xz_coeffs: jax.Array | None = None,
+    D_yz_coeffs: jax.Array | None = None,
+    D_zz_coeffs: jax.Array | None = None,
+    D_x_coeffs: jax.Array | None = None,
+    D_y_coeffs: jax.Array | None = None,
+    D_z_coeffs: jax.Array | None = None,
+    I_coeffs: jax.Array | None = None,
     device: jax.Device = DEVICE_ARR[0],
     host_device: jax.Device = HOST_DEVICE,
 ) -> None:
@@ -376,11 +376,11 @@ def local_solve_stage(
 
     Args:
         t (Tree): _description_
-        D_xx_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_xy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_yy_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_x_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
-        D_y_coeffs (jnp.ndarray | None, optional): _description_. Defaults to None.
+        D_xx_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_xy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_yy_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_x_coeffs (jax.Array | None, optional): _description_. Defaults to None.
+        D_y_coeffs (jax.Array | None, optional): _description_. Defaults to None.
     """
     bool_3D = t.D_z is not None
     bool_ItI = t.I_P_0 is not None
@@ -616,7 +616,7 @@ def build_stage(
 
 def down_pass(
     tree: SolverObj,
-    boundary_data_lst: List[jnp.ndarray],
+    boundary_data_lst: List[jax.Array],
     device: jax.Device = DEVICE_ARR[0],
     host_device: jax.Device = HOST_DEVICE,
 ) -> None:

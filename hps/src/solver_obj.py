@@ -169,6 +169,7 @@ def create_solver_obj_2D(
         t.l = 0
     else:
         t.uniform_grid = False
+        t.l = None
 
     t.root = root
     t.p = p

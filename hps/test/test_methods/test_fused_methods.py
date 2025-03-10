@@ -73,6 +73,7 @@ class Test_fused_local_solve_and_build_ItI:
         p = 7
         q = 5
         l = 4
+        n_src = 1
 
         domain_bounds = [(0, 0), (1, 0), (1, 1), (0, 1)]
 
@@ -88,7 +89,8 @@ class Test_fused_local_solve_and_build_ItI:
         d_xx_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
         d_yy_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
 
-        source_term = jnp.zeros_like(t.leaf_cheby_points[..., 0])
+        a, b, _ = t.leaf_cheby_points.shape
+        source_term = jnp.zeros((a, b, n_src), dtype=jnp.float64)
 
         S_arr_lst, DtN_arr_lst, v_arr_lst = _fused_local_solve_and_build_2D_ItI(
             D_xx=t.D_xx,
@@ -112,6 +114,52 @@ class Test_fused_local_solve_and_build_ItI:
         # # assert len(DtN_arr_lst) == l - n_fused_levels
         # assert len(v_arr_lst) == l - n_fused_levels
         assert S_arr_lst[-1].shape[-1] == t.root_boundary_points.shape[0]
+
+    def test_1(self) -> None:
+        """Tests the fused_local_solve_and_build_ItI function returns without error. 2D multi-source case."""
+        p = 7
+        q = 5
+        l = 4
+        n_src = 3
+
+        root = Node(xmin=0.0, xmax=1.0, ymin=0.0, ymax=1.0)
+
+        t = create_solver_obj_2D(p, q, root, uniform_levels=l, use_ItI=True, eta=4.0)
+        print("test_0: l = ", l)
+
+        print("test_0: q = ", q)
+        print("test_0: Expected number of boundary points: ", 8 * q)
+
+        # Do a local solve with a Laplacian operator.
+        d_xx_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
+        d_yy_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
+
+        a, b, _ = t.leaf_cheby_points.shape
+        source_term = jnp.zeros((a, b, n_src), dtype=jnp.float64)
+
+        S_arr_lst, DtN_arr_lst, v_arr_lst = _fused_local_solve_and_build_2D_ItI(
+            D_xx=t.D_xx,
+            D_xy=t.D_xy,
+            D_yy=t.D_yy,
+            D_x=t.D_x,
+            D_y=t.D_y,
+            I_P_0=t.I_P_0,
+            Q_I=t.Q_I,
+            F=t.F,
+            G=t.G,
+            p=t.p,
+            l=l,
+            source_term=source_term,
+            D_xx_coeffs=d_xx_coeffs,
+            D_yy_coeffs=d_yy_coeffs,
+        )
+        n_fused_levels = get_fused_chunksize_2D(p, source_term.dtype, 4**l)[1]
+
+        # assert len(S_arr_lst) == l - n_fused_levels
+        # # assert len(DtN_arr_lst) == l - n_fused_levels
+        # assert len(v_arr_lst) == l - n_fused_levels
+        assert S_arr_lst[-1].shape[-1] == t.root_boundary_points.shape[0]
+        assert v_arr_lst[-1].shape[-1] == n_src
 
 
 class Test_down_pass_from_fused:
@@ -244,6 +292,7 @@ class Test_fused_all_single_chunk_ItI:
         p = 8
         q = 6
         l = 4
+        n_src = 3
 
         domain_bounds = [(0, 0), (1, 0), (1, 1), (0, 1)]
         root = Node(xmin=0.0, xmax=1.0, ymin=0.0, ymax=1.0)
@@ -258,10 +307,11 @@ class Test_fused_all_single_chunk_ItI:
         d_xx_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
         d_yy_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
 
-        source_term = jnp.zeros_like(t.leaf_cheby_points[..., 0])
+        a, b, _ = t.leaf_cheby_points.shape
+        source_term = jnp.zeros((a, b, n_src), dtype=jnp.float64)
 
         bdry_data = jnp.array(
-            np.random.normal(size=t.root_boundary_points[..., 0].shape)
+            np.random.normal(size=(t.root_boundary_points.shape[0], n_src))
         )
         print("test_0: bdry_data shape: ", bdry_data.shape)
 
@@ -284,7 +334,7 @@ class Test_fused_all_single_chunk_ItI:
         )
 
         print("test_0: soln shape: ", soln.shape)
-        assert soln.shape == t.leaf_cheby_points[..., 0].shape
+        assert soln.shape == (a, b, n_src)
 
 
 class Test_down_pass_from_fused_ItI:
@@ -293,6 +343,7 @@ class Test_down_pass_from_fused_ItI:
         p = 7
         q = 5
         l = 4
+        n_src = 3
 
         domain_bounds = [(0, 0), (1, 0), (1, 1), (0, 1)]
 
@@ -308,9 +359,12 @@ class Test_down_pass_from_fused_ItI:
         d_xx_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
         d_yy_coeffs = jnp.ones_like(t.leaf_cheby_points[..., 0])
 
-        source_term = jnp.zeros_like(t.leaf_cheby_points[..., 0])
+        a, b, _ = t.leaf_cheby_points.shape
+        source_term = jnp.zeros((a, b, n_src), dtype=jnp.float64)
 
-        bdry_data = jnp.array(np.random.normal(size=t.root_boundary_points.shape[0]))
+        bdry_data = jnp.array(
+            np.random.normal(size=(t.root_boundary_points.shape[0], n_src))
+        )
 
         S_arr_lst, DtN_arr_lst, v_arr_lst = _fused_local_solve_and_build_2D_ItI(
             D_xx=t.D_xx,
@@ -357,4 +411,4 @@ class Test_down_pass_from_fused_ItI:
         print("test_0: soln shape: ", soln.shape)
         print("test_0: expected shape: ", t.leaf_cheby_points[..., 0].shape)
 
-        assert soln.shape == t.leaf_cheby_points[..., 0].shape
+        assert soln.shape == (a, b, n_src)

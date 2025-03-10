@@ -213,9 +213,6 @@ def add_uniform_levels(root: Node, l: int, q: int = None) -> None:
         root (Node): The root node of the tree.
         l (int): The number of levels to generate.
     """
-    logging.debug(
-        "add_uniform_levels: called with args root=%s, l=%s, q=%s", root, l, q
-    )
     if l == 0:
         return
 

@@ -64,23 +64,23 @@ def _uniform_down_pass_3D_DtN(
 
 def _uniform_down_pass_2D_DtN(
     boundary_data: jnp.ndarray,
-    S_maps_lst: List[jnp.ndarray] | None = None,
-    v_int_lst: List[jnp.ndarray] | None = None,
-    leaf_Y_maps: jnp.ndarray | None = None,
-    v_array: jnp.ndarray | None = None,
-    D_xx: jnp.ndarray | None = None,
-    D_xy: jnp.ndarray | None = None,
-    D_yy: jnp.ndarray | None = None,
-    D_x: jnp.ndarray | None = None,
-    D_y: jnp.ndarray | None = None,
-    P: jnp.ndarray | None = None,
-    Q_D: jnp.ndarray | None = None,
-    source_term: jnp.ndarray | None = None,
-    D_xx_coeffs: jnp.ndarray | None = None,
-    D_xy_coeffs: jnp.ndarray | None = None,
-    D_yy_coeffs: jnp.ndarray | None = None,
-    D_x_coeffs: jnp.ndarray | None = None,
-    D_y_coeffs: jnp.ndarray | None = None,
+    S_maps_lst: List[jnp.ndarray],
+    v_int_lst: List[jnp.ndarray],
+    leaf_Y_maps: jnp.ndarray,
+    v_array: jnp.ndarray,
+    # D_xx: jnp.ndarray | None = None,
+    # D_xy: jnp.ndarray | None = None,
+    # D_yy: jnp.ndarray | None = None,
+    # D_x: jnp.ndarray | None = None,
+    # D_y: jnp.ndarray | None = None,
+    # P: jnp.ndarray | None = None,
+    # Q_D: jnp.ndarray | None = None,
+    # source_term: jnp.ndarray | None = None,
+    # D_xx_coeffs: jnp.ndarray | None = None,
+    # D_xy_coeffs: jnp.ndarray | None = None,
+    # D_yy_coeffs: jnp.ndarray | None = None,
+    # D_x_coeffs: jnp.ndarray | None = None,
+    # D_y_coeffs: jnp.ndarray | None = None,
     device: jax.Device = HOST_DEVICE,
 ) -> jnp.array:
     """
@@ -186,6 +186,11 @@ def _uniform_down_pass_2D_ItI(
         boundary_imp_data,
         axis=[0],
     )
+    logging.debug("_uniform_down_pass_2D_ItI: bdry_data.shape = %s", bdry_data.shape)
+    if len(bdry_data.shape) == 2:
+        # Add a source dimension
+        bdry_data = jnp.expand_dims(bdry_data, axis=-1)
+    logging.debug("_uniform_down_pass_2D_ItI: bdry_data.shape = %s", bdry_data.shape)
 
     leaf_Y_maps = jax.device_put(leaf_Y_maps, device)
     bdry_data = jax.device_put(bdry_data, device)
@@ -198,31 +203,22 @@ def _uniform_down_pass_2D_ItI(
         S_arr = S_maps_lst[level]
         f = f_lst[level]
 
-        # logging.debug("_down_pass_2D_ItI: S_arr.devices() = %s", S_arr.devices())
-        # logging.debug("_down_pass_2D_ItI: f.devices() = %s", f.devices())
-        # logging.debug(
-        #     "_down_pass_2D_ItI: bdry_data.devices() = %s", bdry_data.devices()
-        # )
-
-        # print("_down_pass_2D_ItI: S_arr.shape", S_arr.shape)
-        # print("_down_pass_2D_ItI: f.shape", f.shape)
-
         bdry_data = vmapped_propogate_down_quad_ItI(S_arr, bdry_data, f)
-        _, _, n_bdry = bdry_data.shape
-        bdry_data = bdry_data.reshape((-1, n_bdry))
+        _, _, n_bdry, n_src = bdry_data.shape
+        bdry_data = bdry_data.reshape((-1, n_bdry, n_src))
 
     # Once we have the leaf node incoming impedance data, compute solution on the interior
     # of each leaf node using the Y maps.
     root_incoming_imp_data = bdry_data
-    # logging.debug(
-    #     "_down_pass_2D_ItI: root_incoming_imp_data.devices() = %s",
-    #     root_incoming_imp_data.devices(),
-    # )
-    # logging.debug(
-    #     "_down_pass_2D_ItI: leaf_Y_maps.devices() = %s", leaf_Y_maps.devices()
-    # )
 
-    leaf_homog_solns = jnp.einsum("ijk,ik->ij", leaf_Y_maps, root_incoming_imp_data)
+    # logging.debug(
+    #     "_uniform_down_pass_2D_ItI: leaf_Y_maps.shape = %s", leaf_Y_maps.shape
+    # )
+    # logging.debug(
+    #     "_uniform_down_pass_2D_ItI: root_incoming_imp_data.shape = %s",
+    #     root_incoming_imp_data.shape,
+    # )
+    leaf_homog_solns = jnp.einsum("ijk,ikl->ijl", leaf_Y_maps, root_incoming_imp_data)
     leaf_solns = leaf_homog_solns + v_array
     leaf_solns = jax.device_put(leaf_solns, host_device)
     return leaf_solns

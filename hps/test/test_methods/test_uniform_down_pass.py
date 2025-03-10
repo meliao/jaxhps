@@ -82,10 +82,12 @@ class Test__uniform_down_pass_2D_DtN:
 
 
 class Test__uniform_down_pass_2D_ItI:
-    def test_0(self) -> None:
+    def test_0(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
         p = 16
         q = 14
         l = 2
+        n_src = 1
         num_leaves = 4**l
         root = Node(xmin=0.0, xmax=1.0, ymin=0.0, ymax=1.0)
 
@@ -114,7 +116,11 @@ class Test__uniform_down_pass_2D_ItI:
             R_maps=R_arr, h_arr=g_arr, l=l
         )
 
-        boundary_data = jnp.ones_like(t.root_boundary_points[..., 0])
+        logging.debug("test_0: f_arr_lst shapes = %s", [f.shape for f in f_arr_lst])
+
+        boundary_data = jnp.ones(
+            (t.root_boundary_points.shape[0], n_src), dtype=jnp.float64
+        )
 
         leaf_solns = _uniform_down_pass_2D_ItI(
             boundary_data,
@@ -123,7 +129,56 @@ class Test__uniform_down_pass_2D_ItI:
             Y_arr,
             v_arr,
         )
-        assert leaf_solns.shape == (num_leaves, p**2)
+        assert leaf_solns.shape == (num_leaves, p**2, n_src)
+
+    def test_1(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
+        p = 16
+        q = 14
+        l = 2
+        n_src = 3
+        num_leaves = 4**l
+        root = Node(xmin=0.0, xmax=1.0, ymin=0.0, ymax=1.0)
+
+        t = create_solver_obj_2D(p, q, root, uniform_levels=l, eta=4.0, use_ItI=True)
+        d_xx_coeffs = np.random.normal(size=(num_leaves, p**2))
+        source_term = np.random.normal(size=(num_leaves, p**2, n_src))
+        R_arr, Y_arr, g_arr, v_arr = _local_solve_stage_2D_ItI(
+            D_xx=t.D_xx,
+            D_xy=t.D_xy,
+            D_yy=t.D_yy,
+            D_x=t.D_x,
+            D_y=t.D_y,
+            I_P_0=t.I_P_0,
+            Q_I=t.Q_I,
+            F=t.F,
+            G=t.G,
+            p=t.p,
+            D_xx_coeffs=d_xx_coeffs,
+            source_term=source_term,
+        )
+        # n_leaves, n_bdry, _ = DtN_arr.shape
+        # DtN_arr = DtN_arr.reshape((int(n_leaves / 2), 2, n_bdry, n_bdry))
+        # v_prime_arr = v_prime_arr.reshape((int(n_leaves / 2), 2, 4 * t.q))
+
+        S_arr_lst, R_arr_lst, f_arr_lst = _uniform_build_stage_2D_ItI(
+            R_maps=R_arr, h_arr=g_arr, l=l
+        )
+
+        logging.debug("test_0: f_arr_lst shapes = %s", [f.shape for f in f_arr_lst])
+
+        boundary_data = jnp.ones(
+            (t.root_boundary_points.shape[0], n_src), dtype=jnp.float64
+        )
+
+        leaf_solns = _uniform_down_pass_2D_ItI(
+            boundary_data,
+            S_arr_lst,
+            f_arr_lst,
+            Y_arr,
+            v_arr,
+        )
+        assert leaf_solns.shape == (num_leaves, p**2, n_src)
 
 
 class Test__propogate_down_quad:
