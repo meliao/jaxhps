@@ -10,7 +10,7 @@ from scipy.interpolate import LinearNDInterpolator
 from hps.src.utils import meshgrid_to_lst_of_pts
 from hps.src.quadrature.trees import Node, get_all_leaves, get_all_leaves_jitted
 
-plt.rcParams.update({"text.usetex": True, "font.family": "Computer Modern Roman"})
+# plt.rcParams.update({"text.usetex": True, "font.family": "Computer Modern Roman"})
 
 logging.getLogger("matplotlib").setLevel(logging.WARNING)
 

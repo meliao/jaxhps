@@ -167,6 +167,20 @@ def main(args: argparse.Namespace) -> None:
         return_utot=plot_utot,
     )
 
+    _, _, t, _ = solve_scattering_problem(
+        l=args.l,
+        p=args.p,
+        n=args.n,
+        k=wave_freq,
+        q_fn=q_fn_handle,
+        domain_corners=domain_corners,
+        source_dirs=source_dirs,
+        S_D_matrices_fp=S_D_matrices_fp,
+        zero_impedance=False,
+        return_utot=plot_utot,
+    )
+    logging.info("Solve time = %s", t)
+
     uin = get_uin(args.k, target_pts, source_dirs)
     utot = uin + uscat
     # Expect utot to have (n, n, dirs) shape

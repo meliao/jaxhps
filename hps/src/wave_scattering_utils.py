@@ -19,7 +19,7 @@ from hps.src.methods.fused_methods import (
     _fused_local_solve_and_build_2D_ItI,
     _down_pass_from_fused_ItI,
 )
-from hps.src.config import DEVICE_ARR
+from hps.src.config import DEVICE_ARR, HOST_DEVICE
 from hps.src.quadrature.quad_2D.interpolation import (
     interp_from_nonuniform_hps_to_regular_grid,
 )
@@ -229,6 +229,7 @@ def get_scattering_uscat_impedance(
 
     return imp, cond
 
+INTERP_BATCH_SIZE = 20
 
 def solve_scattering_problem(
     l: int,
@@ -356,7 +357,11 @@ def solve_scattering_problem(
         D_yy_coeffs=d_yy_coeffs,
         I_coeffs=i_term,
     )
-    uscat_soln = interior_solns
+    uscat_soln = interior_solns.block_until_ready()
+    t_1 = default_timer() - t_0
+
+    n_src = uscat_soln.shape[-1]
+    logging.debug("solve_scattering_problem: uscat_soln shape: %s", uscat_soln.shape)
 
     # Measure consistency with the PDE
     # diff_op = t.D_xx + t.D_yy
@@ -395,12 +400,26 @@ def solve_scattering_problem(
     logging.debug(
         "solve_scattering_problem: Interpolating solution onto regular grid..."
     )
-    uscat_regular, target_pts = interp_from_nonuniform_hps_to_regular_grid(
-        root=root,
-        p=p,
-        f_evals=uscat_soln,
-        n_pts=n,
-    )
+
+    uscat_regular = jnp.zeros((n, n, n_src), dtype=jnp.complex128, device=HOST_DEVICE)
+
+    # Do the interpolation from HPS to regular grid in batches of size INTERP_BATCH_SIZE
+    # along the source dimension
+    for i in range(0, n_src, INTERP_BATCH_SIZE):
+        chunk_start = i 
+        chunk_end = min((i + INTERP_BATCH_SIZE), n_src)
+        logging.debug("solve_scattering_problem: Interpolating chunk i=%s, %s:%s",i, chunk_start, chunk_end)
+        uscat_i = uscat_soln[..., chunk_start:chunk_end]
+        logging.debug("solve_scattering_problem: ||uscat_i||=%s", jnp.linalg.norm(uscat_i))
+        chunk_i, target_pts = interp_from_nonuniform_hps_to_regular_grid(
+            root=root,
+            p=p,
+            f_evals=uscat_i,
+            n_pts=n,
+        )
+        logging.debug("solve_scattering_problem: ||chunk_i||=%s", jnp.linalg.norm(chunk_i))
+        chunk_i = jax.device_put(chunk_i, HOST_DEVICE)
+        uscat_regular = uscat_regular.at[..., chunk_start:chunk_end].set(chunk_i)
 
     # source_regular, _ = interp_from_hps_to_regular_grid(
     #     l=l,
@@ -414,5 +433,4 @@ def solve_scattering_problem(
     #     n_pts=n,
     # )
 
-    t_1 = default_timer() - t_0
     return uscat_regular, target_pts, t_1, cond
