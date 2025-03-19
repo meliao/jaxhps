@@ -1,5 +1,5 @@
 import logging
-from collections import namedtuple
+from functools import partial
 from typing import Tuple, Any, List
 import jax.numpy as jnp
 import jax
@@ -225,6 +225,67 @@ def add_uniform_levels(root: Node, l: int, q: int = None) -> None:
                 add_eight_children(add_to=leaf, root=root, q=q)
             else:
                 add_four_children(add_to=leaf, root=root, q=q)
+
+
+def get_all_uniform_leaves_2D(root: Node, l: int) -> List[Node]:
+    """_summary_
+
+    Args:
+        root (Node): Defines the 2D domain
+        l (int): Number of levels of subdivision. There will be 2^l leaves.
+
+    Returns:
+        List[Node]: All of the leaves of the tree. Nodes which are not the leaves will not be returned.
+    """
+
+    # Make an array of [SW, SE, NE, NW] corners.
+    corners_iter = jnp.array(
+        [
+            [
+                [root.xmin, root.ymin],
+                [root.xmax, root.ymin],
+                [root.xmax, root.ymax],
+                [root.xmin, root.ymax],
+            ]
+        ]
+    )
+    for level in range(l):
+        corners_iter = vmapped_corners(corners_iter).reshape(-1, 4, 2)
+
+    node_lst = [
+        Node(xmin=x[0, 0], ymin=x[0, 1], xmax=x[2, 0], ymax=x[2, 1])
+        for x in corners_iter
+    ]
+    return node_lst
+
+
+@jax.jit
+def _corners_for_quad_subdivision(corners: jnp.ndarray) -> jnp.ndarray:
+    """Given a list of corners, return a list of lists of corners corresponding to the four quadrants of the original corners.
+
+    Inputs have shape (4, 2) and outputs have shape (4, 4, 2)."""
+    west, south = corners[0]
+    east, north = corners[2]
+    mid_x = (west + east) / 2
+    mid_y = (south + north) / 2
+
+    return jnp.array(
+        [
+            # SW quadrant
+            [(west, south), (mid_x, south), (mid_x, mid_y), (west, mid_y)],
+            # SE quadrant
+            [(mid_x, south), (east, south), (east, mid_y), (mid_x, mid_y)],
+            # NE quadrant
+            [(mid_x, mid_y), (east, mid_y), (east, north), (mid_x, north)],
+            # NW quadrant
+            [(west, mid_y), (mid_x, mid_y), (mid_x, north), (west, north)],
+        ]
+    )
+
+
+vmapped_corners = jax.vmap(
+    _corners_for_quad_subdivision,
+)
 
 
 @jax.jit

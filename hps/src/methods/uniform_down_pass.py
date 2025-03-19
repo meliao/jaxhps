@@ -9,11 +9,11 @@ from hps.src.config import HOST_DEVICE, DEVICE_ARR
 
 
 def _uniform_down_pass_3D_DtN(
-    boundary_data: jnp.ndarray,
-    S_maps_lst: List[jnp.ndarray],
-    v_int_lst: List[jnp.ndarray],
-    leaf_Y_maps: jnp.ndarray,
-    v_array: jnp.ndarray,
+    boundary_data: jax.Array,
+    S_maps_lst: List[jax.Array],
+    v_int_lst: List[jax.Array],
+    leaf_Y_maps: jax.Array,
+    v_array: jax.Array,
     device: jax.Device = HOST_DEVICE,
 ) -> None:
     logging.debug("_down_pass_3D: started")
@@ -63,26 +63,26 @@ def _uniform_down_pass_3D_DtN(
 
 
 def _uniform_down_pass_2D_DtN(
-    boundary_data: jnp.ndarray,
-    S_maps_lst: List[jnp.ndarray],
-    v_int_lst: List[jnp.ndarray],
-    leaf_Y_maps: jnp.ndarray,
-    v_array: jnp.ndarray,
-    # D_xx: jnp.ndarray | None = None,
-    # D_xy: jnp.ndarray | None = None,
-    # D_yy: jnp.ndarray | None = None,
-    # D_x: jnp.ndarray | None = None,
-    # D_y: jnp.ndarray | None = None,
-    # P: jnp.ndarray | None = None,
-    # Q_D: jnp.ndarray | None = None,
-    # source_term: jnp.ndarray | None = None,
-    # D_xx_coeffs: jnp.ndarray | None = None,
-    # D_xy_coeffs: jnp.ndarray | None = None,
-    # D_yy_coeffs: jnp.ndarray | None = None,
-    # D_x_coeffs: jnp.ndarray | None = None,
-    # D_y_coeffs: jnp.ndarray | None = None,
+    boundary_data: jax.Array,
+    S_maps_lst: List[jax.Array],
+    v_int_lst: List[jax.Array],
+    leaf_Y_maps: jax.Array,
+    v_array: jax.Array,
+    # D_xx: jax.Array | None = None,
+    # D_xy: jax.Array | None = None,
+    # D_yy: jax.Array | None = None,
+    # D_x: jax.Array | None = None,
+    # D_y: jax.Array | None = None,
+    # P: jax.Array | None = None,
+    # Q_D: jax.Array | None = None,
+    # source_term: jax.Array | None = None,
+    # D_xx_coeffs: jax.Array | None = None,
+    # D_xy_coeffs: jax.Array | None = None,
+    # D_yy_coeffs: jax.Array | None = None,
+    # D_x_coeffs: jax.Array | None = None,
+    # D_y_coeffs: jax.Array | None = None,
     device: jax.Device = HOST_DEVICE,
-) -> jnp.array:
+) -> jax.Array:
     """
     Computes the downward pass of the HPS algorithm. This function takes the Dirichlet data
     at the boundary of the domain and propogates it down the tree to the leaf nodes.
@@ -90,15 +90,15 @@ def _uniform_down_pass_2D_DtN(
     Expects all data to be on the CPU. It will be moved to the GPU as needed.
 
     Args:
-        boundary_data (jnp.ndarray): Has shape (n_bdry,)
-        S_maps_lst (List[jnp.ndarray]): Matrices mapping data from the patch boundary to the merge interfaces. List has length (l - 1).
-        v_int_lst (List[jnp.ndarray]): Vectors specifying the particular solution data at the merge interfaces. List has length (l - 1).
-        leaf_Y_maps (jnp.ndarray): Matrices mapping the solution to the interior of the leaf nodes. Has shape (n_leaf, p**2, n_bdry).
-        v_array (jnp.ndarray): Particular solutions at the interior of the leaves. Has shape (n_leaf, p**2).
+        boundary_data (jax.Array): Has shape (n_bdry,)
+        S_maps_lst (List[jax.Array]): Matrices mapping data from the patch boundary to the merge interfaces. List has length (l - 1).
+        v_int_lst (List[jax.Array]): Vectors specifying the particular solution data at the merge interfaces. List has length (l - 1).
+        leaf_Y_maps (jax.Array): Matrices mapping the solution to the interior of the leaf nodes. Has shape (n_leaf, p**2, n_bdry).
+        v_array (jax.Array): Particular solutions at the interior of the leaves. Has shape (n_leaf, p**2).
         device (jax.Device, optional): Where to run the computation. Defaults to HOST_DEVICE.
 
     Returns:
-        jnp.ndarray: Has shape (n_leaf, p**2). Interior solution at the leaf nodes.
+        jax.Array: Has shape (n_leaf, p**2). Interior solution at the leaf nodes.
     """
     logging.debug("_down_pass: started")
     # logging.debug("_down_pass: S_maps_lst[0].device %s", S_maps_lst[0].devices())
@@ -126,46 +126,46 @@ def _uniform_down_pass_2D_DtN(
         n_bdry = bdry_data.shape[-1]
         bdry_data = bdry_data.reshape((-1, n_bdry))
 
-    if leaf_Y_maps is None:
-        # Recompute Y maps
-        root_dirichlet_data = bdry_data
-        # print(
-        #     "_down_pass_2D: root_dirichlet_data.devices() = ",
-        #     root_dirichlet_data.devices(),
-        # )
+    # if leaf_Y_maps is None:
+    #     # Recompute Y maps
+    #     root_dirichlet_data = bdry_data
+    #     # print(
+    #     #     "_down_pass_2D: root_dirichlet_data.devices() = ",
+    #     #     root_dirichlet_data.devices(),
+    #     # )
 
-        # Call local solve stage to recompute Y matrices and solve for the interior solution.
-        return _local_solve_stage_2D_chunked(
-            D_xx=D_xx,
-            D_xy=D_xy,
-            D_yy=D_yy,
-            D_x=D_x,
-            D_y=D_y,
-            P=P,
-            Q_D=Q_D,
-            source_term=source_term,
-            D_xx_coeffs=D_xx_coeffs,
-            D_xy_coeffs=D_xy_coeffs,
-            D_yy_coeffs=D_yy_coeffs,
-            D_x_coeffs=D_x_coeffs,
-            D_y_coeffs=D_y_coeffs,
-            bdry_data=root_dirichlet_data,
-        )
+    #     # Call local solve stage to recompute Y matrices and solve for the interior solution.
+    #     return _local_solve_stage_2D_chunked(
+    #         D_xx=D_xx,
+    #         D_xy=D_xy,
+    #         D_yy=D_yy,
+    #         D_x=D_x,
+    #         D_y=D_y,
+    #         P=P,
+    #         Q_D=Q_D,
+    #         source_term=source_term,
+    #         D_xx_coeffs=D_xx_coeffs,
+    #         D_xy_coeffs=D_xy_coeffs,
+    #         D_yy_coeffs=D_yy_coeffs,
+    #         D_x_coeffs=D_x_coeffs,
+    #         D_y_coeffs=D_y_coeffs,
+    #         bdry_data=root_dirichlet_data,
+    #     )
 
-    else:
-        root_dirichlet_data = bdry_data
-        leaf_homog_solns = jnp.einsum("ijk,ik->ij", leaf_Y_maps, root_dirichlet_data)
-        leaf_solns = leaf_homog_solns + v_array
-        leaf_solns = jax.device_put(leaf_solns, HOST_DEVICE)
-        return leaf_solns
+    # else:
+    root_dirichlet_data = bdry_data
+    leaf_homog_solns = jnp.einsum("ijk,ik->ij", leaf_Y_maps, root_dirichlet_data)
+    leaf_solns = leaf_homog_solns + v_array
+    leaf_solns = jax.device_put(leaf_solns, HOST_DEVICE)
+    return leaf_solns
 
 
 def _uniform_down_pass_2D_ItI(
-    boundary_imp_data: jnp.ndarray,
-    S_maps_lst: List[jnp.ndarray],
-    f_lst: List[jnp.ndarray],
-    leaf_Y_maps: jnp.ndarray,
-    v_array: jnp.ndarray,
+    boundary_imp_data: jax.Array,
+    S_maps_lst: List[jax.Array],
+    f_lst: List[jax.Array],
+    leaf_Y_maps: jax.Array,
+    v_array: jax.Array,
     device: jax.Device = DEVICE_ARR[0],
     host_device: jax.Device = HOST_DEVICE,
 ) -> None:
@@ -226,10 +226,10 @@ def _uniform_down_pass_2D_ItI(
 
 @jax.jit
 def _propogate_down_quad(
-    S_arr: jnp.ndarray,
-    bdry_data: jnp.ndarray,
-    v_int_data: jnp.ndarray,
-) -> jnp.ndarray:
+    S_arr: jax.Array,
+    bdry_data: jax.Array,
+    v_int_data: jax.Array,
+) -> jax.Array:
     """
     Given homogeneous data on the boundary, interface homogeneous solution operator S, and
     interface particular solution data, this function returns the solution on the boundaries
@@ -238,12 +238,12 @@ def _propogate_down_quad(
     suppose n_child is the number of quadrature points on EACH SIDE of a child node.
 
     Args:
-        S_arr (jnp.ndarray): Has shape (4 * n_child, 8 * n_child)
-        bdry_data (jnp.ndarray): 8 * n_child
-        v_int_data (jnp.ndarray): 4 * n_child
+        S_arr (jax.Array): Has shape (4 * n_child, 8 * n_child)
+        bdry_data (jax.Array): 8 * n_child
+        v_int_data (jax.Array): 4 * n_child
 
     Returns:
-        jnp.ndarray: Has shape (4, 4 * n_child)
+        jax.Array: Has shape (4, 4 * n_child)
     """
 
     n_child = bdry_data.shape[0] // 8
@@ -298,10 +298,10 @@ vmapped_propogate_down_quad = jax.vmap(
 
 @jax.jit
 def _propogate_down_quad_ItI(
-    S_arr: jnp.ndarray,
-    bdry_data: jnp.ndarray,
-    f_data: jnp.ndarray,
-) -> jnp.ndarray:
+    S_arr: jax.Array,
+    bdry_data: jax.Array,
+    f_data: jax.Array,
+) -> jax.Array:
     """
     Given homogeneous data on the boundary, interface homogeneous solution operator S, and
     interface particular solution data, this function returns the solution on the boundaries
@@ -310,12 +310,12 @@ def _propogate_down_quad_ItI(
     suppose n_child is the number of quadrature points on EACH SIDE of a child node.
 
     Args:
-        S_arr (jnp.ndarray): Has shape (8 * n_child, 8 * n_child)
-        bdry_data (jnp.ndarray): 8 * n_child
-        f_data (jnp.ndarray): 8 * n_child
+        S_arr (jax.Array): Has shape (8 * n_child, 8 * n_child)
+        bdry_data (jax.Array): 8 * n_child
+        f_data (jax.Array): 8 * n_child
 
     Returns:
-        jnp.ndarray: Has shape (4, 4 * n_child)
+        jax.Array: Has shape (4, 4 * n_child)
     """
 
     n_child = bdry_data.shape[0] // 8
@@ -377,19 +377,19 @@ vmapped_propogate_down_quad_ItI = jax.vmap(
 
 @jax.jit
 def _propogate_down_oct(
-    S_arr: jnp.ndarray,
-    bdry_data: jnp.ndarray,
-    v_int_data: jnp.ndarray,
-) -> jnp.ndarray:
+    S_arr: jax.Array,
+    bdry_data: jax.Array,
+    v_int_data: jax.Array,
+) -> jax.Array:
     """_summary_
 
     Args:
-        S_arr (jnp.ndarray): Has shape (12 * n_per_face, 24 * n_per_face)
-        bdry_data (jnp.ndarray): Has shape (24 * n_per_face,)
-        v_int_data (jnp.ndarray): Has shape (12 * n_per_face,)
+        S_arr (jax.Array): Has shape (12 * n_per_face, 24 * n_per_face)
+        bdry_data (jax.Array): Has shape (24 * n_per_face,)
+        v_int_data (jax.Array): Has shape (12 * n_per_face,)
 
     Returns:
-        jnp.ndarray: Has shape (8, 6 * n_per_face)
+        jax.Array: Has shape (8, 6 * n_per_face)
     """
     n_per_face = bdry_data.shape[0] // 24
 

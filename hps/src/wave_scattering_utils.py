@@ -206,10 +206,6 @@ def get_scattering_uscat_impedance(
     A, b = setup_scattering_lin_system(
         S=S, D=D, T_int=T, gauss_bdry_pts=bdry_pts, k=k, source_directions=source_dirs
     )
-    # logging.debug("get_scattering_uscat_impedance: A shape: %s", A.shape)
-    # logging.debug("get_scattering_uscat_impedance: b shape: %s", b.shape)
-    cond = jnp.linalg.cond(A)
-    # b = b.flatten()
     uin, uin_dn = get_uin_and_normals(k, bdry_pts, source_dirs)
     uin = uin
     uin_dn = uin_dn
@@ -227,9 +223,11 @@ def get_scattering_uscat_impedance(
     # Assemble incoming impedance for the scattered field
     imp = uscat_dn + 1j * eta * uscat
 
-    return imp, cond
+    return imp
+
 
 INTERP_BATCH_SIZE = 20
+
 
 def solve_scattering_problem(
     l: int,
@@ -239,8 +237,8 @@ def solve_scattering_problem(
     q_fn: Callable[[jnp.array], jnp.array],
     domain_corners: jnp.array,
     source_dirs: jnp.array,
-    S_D_matrices_fp: str,
-    zero_impedance: bool = False,
+    S: jax.Array,
+    D: jax.Array,
     interp_xmin: float = None,
     interp_xmax: float = None,
     interp_ymin: float = None,
@@ -260,7 +258,7 @@ def solve_scattering_problem(
     """
 
     # These things are fast to precompute
-    S, D = load_SD_matrices(S_D_matrices_fp)
+
     # Set up the HPS quadrature for l levels and polynomial order p
     logging.debug("solve_scattering_problem: Creating tree...")
     xmin, ymin = domain_corners[0]
@@ -268,7 +266,7 @@ def solve_scattering_problem(
     root = Node(xmin=float(xmin), xmax=float(xmax), ymin=float(ymin), ymax=float(ymax))
 
     t = create_solver_obj_2D(
-        p=p, q=p - 2, root=root, uniform_levels=l, use_ItI=True, eta=k
+        p=p, q=p - 2, root=root, uniform_levels=l, use_ItI=True, eta=k, fill_tree=False
     )
 
     t_0 = default_timer()
@@ -312,29 +310,29 @@ def solve_scattering_problem(
     T = get_DtN_from_ItI(R, t.eta)
 
     logging.debug("solve_scattering_problem: Solving boundary integral equation...")
-    if zero_impedance:
-        incoming_imp_data = jnp.zeros_like(
-            t.root_boundary_points[..., 0]
-        ) + 1j * jnp.zeros_like(t.root_boundary_points[..., 0])
-        cond = 1.0
-    else:
+
+    if DEVICE_ARR[0] not in S.devices():
         S = jax.device_put(S, DEVICE_ARR[0])
         D = jax.device_put(D, DEVICE_ARR[0])
-        incoming_imp_data, cond = get_scattering_uscat_impedance(
-            S=S,
-            D=D,
-            T=T,
-            source_dirs=source_dirs,
-            bdry_pts=t.root_boundary_points,
-            k=k,
-            eta=k,
-        )
+        bool_delete_SD = True
+    else:
+        bool_delete_SD = False
+    incoming_imp_data = get_scattering_uscat_impedance(
+        S=S,
+        D=D,
+        T=T,
+        source_dirs=source_dirs,
+        bdry_pts=t.root_boundary_points,
+        k=k,
+        eta=k,
+    )
 
     # Delete exterior matrices we no longer need
     R.delete()
     T.delete()
-    S.delete()
-    D.delete()
+    if bool_delete_SD:
+        S.delete()
+        D.delete()
 
     # Propagate the resulting impedance data down to the leaves
     interior_solns = _down_pass_from_fused_ItI(
@@ -377,7 +375,6 @@ def solve_scattering_problem(
     #     jnp.max(jnp.abs(pde_error)),
     # )
 
-    # # Measure PDE residual un-normalized
     # lap_u = jnp.einsum("ij,kj->ki", diff_op, uscat_soln)
     # inhomogeneous_term = k**2 * (1 + q_fn(t.leaf_cheby_points)) * uscat_soln
 
@@ -406,18 +403,27 @@ def solve_scattering_problem(
     # Do the interpolation from HPS to regular grid in batches of size INTERP_BATCH_SIZE
     # along the source dimension
     for i in range(0, n_src, INTERP_BATCH_SIZE):
-        chunk_start = i 
+        chunk_start = i
         chunk_end = min((i + INTERP_BATCH_SIZE), n_src)
-        logging.debug("solve_scattering_problem: Interpolating chunk i=%s, %s:%s",i, chunk_start, chunk_end)
+        logging.debug(
+            "solve_scattering_problem: Interpolating chunk i=%s, %s:%s",
+            i,
+            chunk_start,
+            chunk_end,
+        )
         uscat_i = uscat_soln[..., chunk_start:chunk_end]
-        logging.debug("solve_scattering_problem: ||uscat_i||=%s", jnp.linalg.norm(uscat_i))
+        logging.debug(
+            "solve_scattering_problem: ||uscat_i||=%s", jnp.linalg.norm(uscat_i)
+        )
         chunk_i, target_pts = interp_from_nonuniform_hps_to_regular_grid(
             root=root,
             p=p,
             f_evals=uscat_i,
             n_pts=n,
         )
-        logging.debug("solve_scattering_problem: ||chunk_i||=%s", jnp.linalg.norm(chunk_i))
+        logging.debug(
+            "solve_scattering_problem: ||chunk_i||=%s", jnp.linalg.norm(chunk_i)
+        )
         chunk_i = jax.device_put(chunk_i, HOST_DEVICE)
         uscat_regular = uscat_regular.at[..., chunk_start:chunk_end].set(chunk_i)
 
@@ -433,4 +439,4 @@ def solve_scattering_problem(
     #     n_pts=n,
     # )
 
-    return uscat_regular, target_pts, t_1, cond
+    return uscat_regular, target_pts, t_1

@@ -1,6 +1,5 @@
-# hps_gpu
-Experiments and development for HPS solvers on GPU
-
+# ha-hps
+Hardware Acceleration for HPS Methods in Two and Three Dimensions
 
 ## How to use this repository:
 Set up the environment with conda:

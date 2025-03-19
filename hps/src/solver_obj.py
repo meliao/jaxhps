@@ -10,6 +10,7 @@ from hps.src.quadrature.trees import (
     Node,
     add_uniform_levels,
     get_all_leaves,
+    get_all_uniform_leaves_2D,
     get_all_leaves_jitted,
     get_nodes_at_level,
 )
@@ -162,6 +163,8 @@ def create_solver_obj_2D(
         t.l = uniform_levels
         if fill_tree:
             add_uniform_levels(root=root, l=uniform_levels)
+        else:
+            root.children = get_all_uniform_leaves_2D(root, uniform_levels)
 
     elif len(all_leaves) == 1 and uniform_levels is None:
         # Edge case for no refinement

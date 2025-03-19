@@ -7,7 +7,11 @@ import jax
 from scipy.io import savemat
 
 from hps.src.logging_utils import FMT, TIMEFMT
-from hps.src.wave_scattering_utils import solve_scattering_problem, get_uin
+from hps.src.wave_scattering_utils import (
+    solve_scattering_problem,
+    get_uin,
+    load_SD_matrices,
+)
 from hps.src.scattering_potentials import (
     q_luneburg,
     q_vertically_graded,
@@ -16,6 +20,7 @@ from hps.src.scattering_potentials import (
     q_GBM_1,
 )
 from hps.src.plotting import plot_field_for_wave_scattering_experiment
+from hps.src.config import HOST_DEVICE, DEVICE_ARR
 
 
 # Silence matplotlib debug messages
@@ -159,7 +164,10 @@ def main(args: argparse.Namespace) -> None:
 
     wave_freq = args.k
 
-    uscat, target_pts, solve_time, _ = solve_scattering_problem(
+    logging.debug("Loading S and D from disk...")
+    S, D = load_SD_matrices(S_D_matrices_fp)
+
+    uscat, target_pts, solve_time = solve_scattering_problem(
         l=args.l,
         p=args.p,
         n=args.n,
@@ -167,8 +175,8 @@ def main(args: argparse.Namespace) -> None:
         q_fn=q_fn_handle,
         domain_corners=domain_corners,
         source_dirs=source_dirs,
-        S_D_matrices_fp=S_D_matrices_fp,
-        zero_impedance=False,
+        S=S,
+        D=D,
         return_utot=plot_utot,
     )
     logging.info("Computed reference solution in %f seconds", solve_time)

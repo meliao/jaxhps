@@ -275,7 +275,7 @@ def _node_contains_point(node: Node, pt: jnp.array) -> bool:
     # return (node.xmin <= pt[0] <= node.xmax) and (node.ymin <= pt[1] <= node.ymax)
 
 
-# @partial(jax.jit, static_argnums=(1, 3))
+@partial(jax.jit, static_argnums=(1, 3))
 def interp_from_nonuniform_hps_to_regular_grid(
     root: Node,
     p: int,

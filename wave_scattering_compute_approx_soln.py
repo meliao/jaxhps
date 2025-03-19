@@ -8,7 +8,7 @@ from scipy.io import savemat
 from scipy.io import loadmat
 
 from hps.src.logging_utils import FMT, TIMEFMT
-from hps.src.wave_scattering_utils import solve_scattering_problem
+from hps.src.wave_scattering_utils import solve_scattering_problem, load_SD_matrices
 from hps.src.plotting import plot_field_for_wave_scattering_experiment
 from hps.src.scattering_potentials import (
     q_luneburg,
@@ -17,6 +17,7 @@ from hps.src.scattering_potentials import (
     q_gaussian_bumps,
     q_GBM_1,
 )
+from hps.src.config import DEVICE_ARR, HOST_DEVICE
 
 # Silence matplotlib debug messages
 logging.getLogger("matplotlib").disabled = True
@@ -172,8 +173,13 @@ def main(args: argparse.Namespace) -> None:
 
     wave_freq = args.k
 
+    logging.debug("Loading S and D from disk...")
+    S, D = load_SD_matrices(S_D_matrices_fp)
+    S_gpu = jax.device_put(S, DEVICE_ARR[0])
+    D_gpu = jax.device_put(D, DEVICE_ARR[0])
+
     # First one to JIT-compile the code
-    uscat, target_pts, solve_time, cond = solve_scattering_problem(
+    uscat, target_pts, solve_time = solve_scattering_problem(
         l=args.l,
         p=args.p,
         n=args.n,
@@ -181,14 +187,14 @@ def main(args: argparse.Namespace) -> None:
         q_fn=q_fn_handle,
         domain_corners=domain_corners,
         source_dirs=source_dirs,
-        S_D_matrices_fp=S_D_matrices_fp,
-        zero_impedance=False,
+        S=S_gpu,
+        D=D_gpu,
     )
 
     # Measure solution times
     times = jnp.zeros(args.n_time_samples, dtype=jnp.float64)
     for i in range(args.n_time_samples):
-        uscat, target_pts, solve_time, cond = solve_scattering_problem(
+        uscat, target_pts, solve_time = solve_scattering_problem(
             l=args.l,
             p=args.p,
             n=args.n,
@@ -196,8 +202,8 @@ def main(args: argparse.Namespace) -> None:
             q_fn=q_fn_handle,
             domain_corners=domain_corners,
             source_dirs=source_dirs,
-            S_D_matrices_fp=S_D_matrices_fp,
-            zero_impedance=False,
+            S=S_gpu,
+            D=D_gpu,
         )
         times = times.at[i].set(solve_time)
         logging.info(
@@ -207,7 +213,6 @@ def main(args: argparse.Namespace) -> None:
     mean_total = jnp.mean(times)
     stddev_total = jnp.std(times)
     logging.info("Total time results: %f sec +/- %f", mean_total, stddev_total)
-    logging.info("Conditioning of Boundary system: %f", cond)
     # Step 3: Compute errors against reference. This function
     # also logs the error
     rel_linf_error = compute_linf_error(uscat, reference_fp)
@@ -221,7 +226,6 @@ def main(args: argparse.Namespace) -> None:
             "target_pts": target_pts,
             "rel_linf_error": rel_linf_error,
             "times": times,
-            "cond": cond,
         },
     )
 

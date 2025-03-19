@@ -6,7 +6,7 @@ import jax.numpy as jnp
 
 from hps.src.quadrature.trees import Node, get_all_leaves
 from hps.src.quadrature.quad_3D.grid_creation import get_ordered_lst_of_boundary_nodes
-from hps.src.methods.schur_complement import schur_complement_for_DtN_merge
+# from hps.src.methods.schur_complement import assemble_merge_outputs_DtN
 from hps.src.config import DEVICE_ARR, HOST_DEVICE
 
 

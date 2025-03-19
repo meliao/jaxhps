@@ -35,7 +35,7 @@ from hps.src.quadrature.trees import (
 )
 from hps.src.methods.uniform_build_stage import vmapped_uniform_oct_merge
 from hps.src.methods.schur_complement import (
-    schur_complement_for_DtN_merge,
+    assemble_merge_outputs_DtN,
     _oct_merge_from_submatrices,
 )
 from hps.src.methods.adaptive_merge_utils_2D import find_compression_lists_2D
@@ -401,7 +401,7 @@ def _quad_merge(
     v_prime_ext = jnp.concatenate([v_prime_a_1, v_prime_b_2, v_prime_c_3, v_prime_d_4])
 
     # use the Schur complement code to compute the Schur complement
-    T, S, v_prime_ext_out, v_int = schur_complement_for_DtN_merge(
+    T, S, v_prime_ext_out, v_int = assemble_merge_outputs_DtN(
         A_lst, B, C, D, v_prime_ext, delta_v_prime_int
     )
 

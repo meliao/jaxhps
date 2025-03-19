@@ -21,6 +21,7 @@ from hps.src.quadrature.trees import (
     find_nodes_along_interface_2D,
     find_nodes_along_interface_3D,
     find_path_from_root_3D,
+    get_all_uniform_leaves_2D,
 )
 
 
@@ -686,6 +687,44 @@ class Test_add_uniform_levels:
         for leaf in leaves:
             assert get_node_area(leaf) == (1 / 8) ** l
             assert leaf.depth == l
+
+
+class Test_get_all_uniform_leaves_2D:
+    def test_0(self) -> None:
+        """2D case uniform refinement"""
+        node = Node(
+            xmin=0.0,
+            xmax=1.0,
+            ymin=0.0,
+            ymax=1.0,
+            zmin=None,
+            zmax=None,
+            depth=0,
+        )
+
+        l = 3
+        q = 3
+        add_uniform_levels(root=node, l=l, q=q)
+        leaves = get_all_leaves(node)
+
+        node1 = Node(
+            xmin=0.0,
+            xmax=1.0,
+            ymin=0.0,
+            ymax=1.0,
+            zmin=None,
+            zmax=None,
+            depth=0,
+        )
+        leaves1 = get_all_uniform_leaves_2D(node1, l)
+        assert len(leaves) == len(leaves1)
+        for i in range(len(leaves)):
+            leaf_a = leaves[i]
+            leaf_b = leaves1[i]
+            assert leaf_a.xmin == leaf_b.xmin
+            assert leaf_a.xmax == leaf_b.xmax
+            assert leaf_a.ymin == leaf_b.ymin
+            assert leaf_a.ymax == leaf_b.ymax
 
 
 class Test_get_all_nodes:

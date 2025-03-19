@@ -146,7 +146,7 @@ def source_locations_to_scattered_field(source_locations: jnp.array) -> jnp.arra
 
     T = get_DtN_from_ItI(R, tree.eta)
 
-    incoming_imp_data, _ = get_scattering_uscat_impedance(
+    incoming_imp_data = get_scattering_uscat_impedance(
         S=S,
         D=D,
         T=T,

@@ -7,7 +7,11 @@ import jax
 from scipy.io import savemat
 
 from hps.src.logging_utils import FMT, TIMEFMT
-from hps.src.wave_scattering_utils import solve_scattering_problem, get_uin
+from hps.src.wave_scattering_utils import (
+    solve_scattering_problem,
+    get_uin,
+    load_SD_matrices,
+)
 from hps.src.scattering_potentials import (
     q_gaussian_bumps,
     q_luneburg,
@@ -16,6 +20,7 @@ from hps.src.scattering_potentials import (
     q_gaussian_bumps,
     q_GBM_1,
 )
+from hps.src.config import DEVICE_ARR, HOST_DEVICE
 from hps.src.plotting import plot_field_for_wave_scattering_experiment
 
 
@@ -154,7 +159,11 @@ def main(args: argparse.Namespace) -> None:
 
     wave_freq = args.k
 
-    uscat, target_pts, solve_time, _ = solve_scattering_problem(
+    S, D = load_SD_matrices(S_D_matrices_fp)
+    S = jax.device_put(S, DEVICE_ARR[0])
+    D = jax.device_put(D, DEVICE_ARR[0])
+
+    uscat, target_pts, solve_time = solve_scattering_problem(
         l=args.l,
         p=args.p,
         n=args.n,
@@ -162,26 +171,28 @@ def main(args: argparse.Namespace) -> None:
         q_fn=q_fn_handle,
         domain_corners=domain_corners,
         source_dirs=source_dirs,
-        S_D_matrices_fp=S_D_matrices_fp,
-        zero_impedance=False,
+        S=S,
+        D=D,
         return_utot=plot_utot,
     )
 
-    _, _, t, _ = solve_scattering_problem(
-        l=args.l,
-        p=args.p,
-        n=args.n,
-        k=wave_freq,
-        q_fn=q_fn_handle,
-        domain_corners=domain_corners,
-        source_dirs=source_dirs,
-        S_D_matrices_fp=S_D_matrices_fp,
-        zero_impedance=False,
-        return_utot=plot_utot,
-    )
-    logging.info("Solve time = %s", t)
+    # _, _, t = solve_scattering_problem(
+    #     l=args.l,
+    #     p=args.p,
+    #     n=args.n,
+    #     k=wave_freq,
+    #     q_fn=q_fn_handle,
+    #     domain_corners=domain_corners,
+    #     source_dirs=source_dirs,
+    #     S=S,
+    #     D=D,
+    #     return_utot=plot_utot,
+    # )
+    # logging.info("Solve time = %s", t)
 
-    uin = get_uin(args.k, target_pts, source_dirs)
+    uin = jax.device_put(get_uin(args.k, target_pts, source_dirs), HOST_DEVICE)
+    logging.info("uin devices: %s", uin.devices())
+    logging.info("uscat devices: %s", uscat.devices())
     utot = uin + uscat
     # Expect utot to have (n, n, dirs) shape
     logging.info("utot shape: %s", utot.shape)
@@ -194,7 +205,7 @@ def main(args: argparse.Namespace) -> None:
         plot_field_for_wave_scattering_experiment(
             utot[..., i].real,
             target_pts,
-            cmap_str="parula",
+            cmap_str="bwr",
             save_fp=fp_i,
             maxval=maxval,
             minval=-1 * maxval,

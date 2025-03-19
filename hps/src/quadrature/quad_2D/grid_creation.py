@@ -5,7 +5,6 @@ import jax.numpy as jnp
 import numpy as np
 
 from hps.src.quadrature.quadrature_utils import chebyshev_points, affine_transform
-from hps.src.quadrature.trees import Node
 from hps.src.utils import meshgrid_to_lst_of_pts
 from hps.src.quadrature.quad_2D.indexing import _rearrange_indices
 from hps.src.quadrature.trees import (
@@ -14,6 +13,7 @@ from hps.src.quadrature.trees import (
     get_all_leaves_jitted,
     get_nodes_at_level,
     find_node_at_corner,
+    vmapped_corners,
 )
 
 
@@ -239,35 +239,6 @@ def get_all_boundary_gauss_legendre_points(q: int, root: Node) -> jnp.ndarray:
         ]
     )
     return gauss_nodes
-
-
-@jax.jit
-def _corners_for_quad_subdivision(corners: jnp.ndarray) -> jnp.ndarray:
-    """Given a list of corners, return a list of lists of corners corresponding to the four quadrants of the original corners.
-
-    Inputs have shape (4, 2) and outputs have shape (4, 4, 2)."""
-    west, south = corners[0]
-    east, north = corners[2]
-    mid_x = (west + east) / 2
-    mid_y = (south + north) / 2
-
-    return jnp.array(
-        [
-            # SW quadrant
-            [(west, south), (mid_x, south), (mid_x, mid_y), (west, mid_y)],
-            # SE quadrant
-            [(mid_x, south), (east, south), (east, mid_y), (mid_x, mid_y)],
-            # NE quadrant
-            [(mid_x, mid_y), (east, mid_y), (east, north), (mid_x, north)],
-            # NW quadrant
-            [(west, mid_y), (mid_x, mid_y), (mid_x, north), (west, north)],
-        ]
-    )
-
-
-vmapped_corners = jax.vmap(
-    _corners_for_quad_subdivision,
-)
 
 
 @jax.jit

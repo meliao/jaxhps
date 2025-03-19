@@ -29,7 +29,8 @@ K_PART_SOLN_DUDZ = "d_dz_part_soln_fn"
 
 ######################################################################
 # Define the root node that all test cases will use
-ROOT = Node(xmin=-jnp.pi / 2, xmax=jnp.pi / 2, ymin=-jnp.pi / 2, ymax=jnp.pi / 2)
+ROOT_DTN = Node(xmin=-jnp.pi / 2, xmax=jnp.pi / 2, ymin=-jnp.pi / 2, ymax=jnp.pi / 2)
+ROOT_ITI = Node(xmin=-jnp.pi / 2, xmax=jnp.pi / 2, ymin=-jnp.pi / 2, ymax=jnp.pi / 2)
 
 
 ######################################################################

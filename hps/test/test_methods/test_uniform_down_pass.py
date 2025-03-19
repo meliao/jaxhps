@@ -63,20 +63,7 @@ class Test__uniform_down_pass_2D_DtN:
         boundary_data = jnp.ones_like(t.root_boundary_points[..., 0])
 
         leaf_solns = _uniform_down_pass_2D_DtN(
-            boundary_data,
-            S_arr_lst,
-            v_int_lst,
-            leaf_Y_maps=Y_arr,
-            v_array=v_arr,
-            D_xx=t.D_xx,
-            D_xy=t.D_xy,
-            D_yy=t.D_yy,
-            D_x=t.D_x,
-            D_y=t.D_y,
-            P=t.P,
-            Q_D=t.Q_D,
-            D_xx_coeffs=d_xx_coeffs,
-            source_term=source_term,
+            boundary_data, S_arr_lst, v_int_lst, leaf_Y_maps=Y_arr, v_array=v_arr
         )
         assert leaf_solns.shape == (num_leaves, p**2)
 

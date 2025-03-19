@@ -6,57 +6,153 @@ from hps.src.config import DEVICE_ARR, HOST_DEVICE
 
 
 @jax.jit
-def schur_complement_for_DtN_merge(
+def assemble_merge_outputs_ItI(
     A_lst: List[jnp.array],
     B: jnp.array,
     C: jnp.array,
-    D: jnp.array,
-    v_prime_ext: jnp.array,
-    delta_v_prime_int: jnp.array,
+    D_12: jnp.array,
+    D_21: jax.Array,
+    h_ext: jnp.array,
+    h_int: jnp.array,
 ) -> Tuple[jnp.array, jnp.array, jnp.array, jnp.array]:
     """
-    Computes a Schur complement that shows up in merging
-    different DtN maps.
-
-    Given the system
-
-    [ A B ][w_ext] = [u'_ext - v'_ext]
-    [ C D ][w_int]   [-Delta v'_int]
-
-    After two steps of block Gaussian elimination, we get
-
-    [A-BD^{-1}C    0][w_ext] = [u'_ext - v'_ext + BD^{-1}Delta v'_int]
-    [D^{-1}C       I][w_int]   [-D^{-1}Delta v'_int]
-
+    Performs a merge for ItI matrices. In the ItI case, the D matrix is structured like:
+            ------------
+    D = I + | 0    D_12 |
+            | D_21 0    |
+            -------------
+    So we invert it with a Schur complement method and then pass the data to _assemble_merge_outputs()
     Args:
         A_lst (List[jnp.array]): _description_
         B (jnp.array): _description_
         C (jnp.array): _description_
         D (jnp.array): _description_
-        v_prime_ext (jnp.array): _description_
-        delta_v_prime_int (jnp.array): _description_
+        h_ext (jnp.array): _description_
+        h_int (jnp.array): _description_
 
     Returns:
         Tuple[jnp.array, jnp.array, jnp.array, jnp.array]
 
         T (jnp.array): DtN matrix
         S (jnp.array): ext_to_int matrix
-        v_prime_ext_out (jnp.array): particular soln normal on the boundary of the merged patches.
-        v_int (jnp.array): particular soln on the merge interfaces.
+        h_ext_out (jnp.array): particular soln outgoing data on the boundary of the merged patches.
+        g_tilde_int (jnp.array): particular soln incoming data on the merge interfaces.
     """
-    # print("schur_complement_for_DtN_merge: D.devices", D.devices())
 
-    # Move everything to the GPU
-    # A_lst = [jax.device_put(A, DEVICE_ARR[0]) for A in A_lst]
-    # B = jax.device_put(B, DEVICE_ARR[0])
-    # C = jax.device_put(C, DEVICE_ARR[0])
-    # D = jax.device_put(D, DEVICE_ARR[0])
-    # print("schur_complement_for_DtN_merge: D.devices", D.devices())
-    # v_prime_ext = jax.device_put(v_prime_ext, DEVICE_ARR[0])
-    # delta_v_prime_int = jax.device_put(delta_v_prime_int, DEVICE_ARR[0])
+    D_inv = _invert_D_ItI(D_12, D_21)
+    return _assemble_merge_outputs(A_lst, B, C, D_inv, h_ext, h_int)
 
-    neg_D_inv = -1 * jnp.linalg.inv(D)
-    S = neg_D_inv @ C
+
+@jax.jit
+def _invert_D_ItI(D_12: jax.Array, D_21: jax.Array) -> jax.Array:
+    """
+    In the ItI case, D has this structure:
+            ------------
+    D = I + | 0    D_12 |
+            | D_21 0    |
+            -------------
+
+    This function computes D^{-1} by forming a Schur complement W = (I - D_12 D_21). Then D^{-1} is
+
+             --------------------------------------
+    D^{-1} = | W^{-1}         -W^{-1} D_12          |
+             | -D_21 W^{-1}   I + D_21 W^{-1} D_12  |
+             --------------------------------------
+
+    Args:
+        D_12 (jax.Array): Upper-right block of D. Is square. Has shape (n, n)
+        D_21 (jax.Array): Lower-left block of D. Is square. Has shape (m, m)
+
+    Returns:
+        jax.Array: Square matrix that is the inverse of D. Has shape (n+m, n+m)
+    """
+    n, _ = D_12.shape
+    m, _ = D_21.shape
+    W = jnp.eye(n) - D_12 @ D_21
+    W_inv = jnp.linalg.inv(W)
+
+    D_inv = jnp.zeros((n + m, n + m), dtype=D_12.dtype)
+    D_inv = D_inv.at[:n, :n].set(W_inv)
+    D_inv = D_inv.at[:n, n:].set(-1 * W_inv @ D_12)
+    D_inv = D_inv.at[n:, :n].set(-1 * D_21 @ W_inv)
+    D_inv = D_inv.at[n:, n:].set(jnp.eye(m) + D_21 @ W_inv @ D_12)
+    return D_inv
+
+
+@jax.jit
+def assemble_merge_outputs_DtN(
+    A_lst: List[jnp.array],
+    B: jnp.array,
+    C: jnp.array,
+    D: jnp.array,
+    h_ext: jnp.array,
+    h_int: jnp.array,
+) -> Tuple[jnp.array, jnp.array, jnp.array, jnp.array]:
+    """
+    Inverts D, which is dense in the DtN case, and then passes the data to _assemble_merge_outputs()
+
+    Args:
+        A_lst (List[jnp.array]): _description_
+        B (jnp.array): _description_
+        C (jnp.array): _description_
+        D (jnp.array): _description_
+        h_ext (jnp.array): _description_
+        h_int (jnp.array): _description_
+
+    Returns:
+        Tuple[jnp.array, jnp.array, jnp.array, jnp.array]
+
+        T (jnp.array): DtN matrix
+        S (jnp.array): ext_to_int matrix
+        h_ext_out (jnp.array): particular soln outgoing data on the boundary of the merged patches.
+        g_tilde_int (jnp.array): particular soln incoming data on the merge interfaces.
+    """
+
+    D_inv = jnp.linalg.inv(D)
+    return _assemble_merge_outputs(A_lst, B, C, D_inv, h_ext, h_int)
+
+
+@jax.jit
+def _assemble_merge_outputs(
+    A_lst: List[jnp.array],
+    B: jnp.array,
+    C: jnp.array,
+    D_inv: jnp.array,
+    h_ext: jnp.array,
+    h_int: jnp.array,
+) -> Tuple[jnp.array, jnp.array, jnp.array, jnp.array]:
+    """
+    Computes a Schur complement that shows up in merging
+    four patches together. Assumes D is already inverted.
+
+    Given the system
+
+    [ A B ][g_ext] = [u_ext - h_ext]
+    [ C D ][g_int]   [-h_int]
+
+    After two steps of block Gaussian elimination, we get
+
+    [A-BD^{-1}C    0][g_ext] = [u_ext - h_ext + BD^{-1} h_int]
+    [D^{-1}C       I][g_int]   [-D^{-1} h_int]
+
+    Args:
+        A_lst (List[jnp.array]): List of square diagonal blocks which make up A
+        B (jnp.array):
+        C (jnp.array): _description_
+        D_inv (jnp.array): _description_
+        h_ext (jnp.array): _description_
+        h_int (jnp.array): _description_
+
+    Returns:
+        Tuple[jnp.array, jnp.array, jnp.array, jnp.array]
+
+        T (jnp.array): DtN matrix
+        S (jnp.array): Propagation matrix
+        h_ext_out (jnp.array): particular soln outgoing data on the boundary of the merged patches.
+        g_tilde_int (jnp.array): particular soln incoming data on the merge interfaces.
+    """
+
+    S = -1 * D_inv @ C
     T = B @ S
     # Need to add A to T block-wise
     counter = 0
@@ -68,16 +164,10 @@ def schur_complement_for_DtN_merge(
         )
         counter = block_end
 
-    v_prime_ext_out = v_prime_ext + B @ neg_D_inv @ delta_v_prime_int
-    v_int = neg_D_inv @ delta_v_prime_int
+    g_tilde_int = -1 * D_inv @ h_int
+    h_ext_out = h_ext + B @ g_tilde_int
 
-    # Move outputs back to the CPU
-    # T = jax.device_put(T, HOST_DEVICE)
-    # S = jax.device_put(S, HOST_DEVICE)
-    # v_prime_ext_out = jax.device_put(v_prime_ext_out, HOST_DEVICE)
-    # v_int = jax.device_put(v_int, HOST_DEVICE)
-
-    return (T, S, v_prime_ext_out, v_int)
+    return (T, S, h_ext_out, g_tilde_int)
 
 
 @jax.jit
@@ -509,7 +599,7 @@ def _oct_merge_from_submatrices(
     # delta_v_prime_int = jax.device_put(delta_v_prime_int, DEVICE_ARR[0])
 
     # print("_oct_merge_from_submatrices: D devices: ", D.devices())
-    T, S, v_prime_ext_out, v_int = schur_complement_for_DtN_merge(
+    T, S, v_prime_ext_out, v_int = assemble_merge_outputs_DtN(
         A_lst, B, C, D, v_prime_ext, delta_v_prime_int
     )
     # Move outputs back to the CPU

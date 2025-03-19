@@ -11,9 +11,10 @@ from scipy.sparse.linalg import LinearOperator, lsqr, svds
 from scipy.io import savemat, loadmat
 
 # Disable all matplorlib logging
-logging.getLogger("matplotlib").setLevel(logging.WARNING)
-logging.getLogger("PIL").setLevel(logging.WARNING)
-
+# logging.getLogger("matplotlib").setLevel(logging.WARNING)
+# logging.getLogger("PIL").setLevel(logging.WARNING)
+logging.getLogger("matplotlib").disabled = True
+logging.getLogger("matplotlib.font_manager").disabled = True
 # Uncomment for debugging NaNs. Slows code down.
 # jax.config.update("jax_debug_nans", True)
 
@@ -405,9 +406,24 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     args = setup_args()
+    # Get the root logger directly
+    root_logger = logging.getLogger()
+
+    # Set the level directly on the root logger
     if args.debug:
         level = logging.DEBUG
     else:
         level = logging.INFO
-    logging.basicConfig(format=FMT, datefmt=TIMEFMT, level=level)
+
+    # Clear any existing handlers to avoid duplicate log messages
+    if root_logger.handlers:
+        root_logger.handlers.clear()
+
+    # Configure the logger
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(FMT, datefmt=TIMEFMT)
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
+    root_logger.setLevel(level)
+
     main(args)

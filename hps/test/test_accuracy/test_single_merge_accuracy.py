@@ -15,7 +15,8 @@ from hps.src.solver_obj import (
 from hps.src.quadrature.trees import Node
 from hps.src.up_down_passes import local_solve_stage, build_stage, down_pass
 from hps.test.test_accuracy.cases import (
-    ROOT,
+    ROOT_DTN,
+    ROOT_ITI,
     TEST_CASE_POLY_PART_HOMOG,
     TEST_CASE_POLY_ZERO_SOURCE,
     K_DIRICHLET,
@@ -36,11 +37,11 @@ ATOL = 1e-12
 RTOL = 0.0
 
 SOLVER_LOCAL_SOLVE_DTN = create_solver_obj_2D(
-    p=6, q=4, root=ROOT, uniform_levels=1, fill_tree=False
+    p=6, q=4, root=ROOT_DTN, uniform_levels=1, fill_tree=False
 )
 
 SOLVER_LOCAL_SOLVE_ITI = create_solver_obj_2D(
-    p=6, q=4, root=ROOT, uniform_levels=1, use_ItI=True, eta=1.0
+    p=6, q=4, root=ROOT_ITI, uniform_levels=1, use_ItI=True, eta=1.0
 )
 
 

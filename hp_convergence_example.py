@@ -50,14 +50,29 @@ YMAX = 1.0
 CORNERS = jnp.array([[XMIN, YMIN], [XMAX, YMIN], [XMAX, YMAX], [XMIN, YMAX]])
 
 
-def problem_1_soln(x: jnp.array) -> jnp.array:
+K = 5
+LAMBDA = 10
+PI =  jnp.pi
+
+def problem_1_homog_soln(x: jnp.array) -> jnp.array:
     """
     Expect x to have shape (..., 2).
     Output has shape (...)
 
-    u(x,y) = sin(20 x) + cos(30  y)
+    w(x,y) = e^{kx} sin(ky)
     """
-    return jnp.sin(20 * x[..., 0]) + jnp.cos(30 * x[..., 1])
+    return jnp.zeros_like(x[..., 0])
+    # return jnp.exp(K * x[..., 0]) * jnp.sin(K * x[..., 1])
+
+
+def problem_1_part_soln(x: jnp.array) -> jnp.array:
+    """
+    Expect x to have shape (..., 2).
+    Output has shape (...)
+
+    v(x,y) =  sin(2 pi lambda x) sin(2 pi y))
+    """
+    return jnp.sin(PI * LAMBDA * x[..., 0]) * jnp.sin(PI * x[..., 1])
 
 
 def problem_1_lap_coeffs(x: jnp.array) -> jnp.array:
@@ -65,11 +80,29 @@ def problem_1_lap_coeffs(x: jnp.array) -> jnp.array:
     Expect x to have shape (..., 2).
     Output has shape (...)
 
-    f(x) = 1 + exp{-||x||^2 * 50}
+    c(x,y) = 1
     """
-    # return jnp.ones_like(x[..., 0])
+    return jnp.ones_like(x[..., 0])
 
-    return 1 + jnp.exp(-jnp.linalg.norm(x, axis=-1) ** 2 * 50)
+
+def problem_1_d_x_coeffs(x: jnp.array) -> jnp.array:
+    """
+    Expect x to have shape (..., 2)
+    Output has shape (...)
+
+    c(x,y) = -cos(ky)
+    """
+    return -1 * jnp.cos(K * x[..., 1])
+
+
+def problem_1_d_y_coeffs(x: jnp.array) -> jnp.array:
+    """
+    Expect x to have shape (..., 2)
+    Output has shape (...)
+
+    c(x,y) = sin(ky)
+    """
+    return jnp.sin(K * x[..., 1])
 
 
 def problem_1_source(x: jnp.array) -> jnp.array:
@@ -77,11 +110,12 @@ def problem_1_source(x: jnp.array) -> jnp.array:
     Expect x to have shape (..., 2).
     Output has shape (...)
 
-    f(x,y) = -1 * lap_coeffs(x,y) * (400 sin(20  x) + 900  cos(30  y))
+    f(x,y) = -\lamba^2 sin(\lambda x) - \lambda cos(\lambda x) cos(k y)
     """
-    lap_coeffs = problem_1_lap_coeffs(x)
-    second_part = 400 * jnp.sin(20 * x[..., 0]) + 900 * jnp.cos(30 * x[..., 1])
-    return -1 * lap_coeffs * second_part
+    term_1 = -1 * (PI**2) *  (1 + LAMBDA**2) * problem_1_part_soln(x)
+    term_2 = -1 * PI * LAMBDA * jnp.cos(PI * LAMBDA * x[..., 0]) * jnp.sin(PI * x[..., 1]) * jnp.cos(K * x[..., 1])
+    term_3 = PI * jnp.sin(PI*LAMBDA * x[..., 0])* jnp.cos(PI * x[..., 1]) * jnp.sin(K * x[..., 1])
+    return term_1 + term_2 + term_3
 
 
 def problem_1(l_vals: int, p_vals: int) -> None:
@@ -101,11 +135,13 @@ def problem_1(l_vals: int, p_vals: int) -> None:
             # Create the right-hand side
             source = problem_1_source(tree.leaf_cheby_points)
 
-            # Get the coefficients for the Laplacian
+            # Get the coefficients for the differential operators
             lap_coeffs = problem_1_lap_coeffs(tree.leaf_cheby_points)
+            d_x_coeffs = problem_1_d_x_coeffs(tree.leaf_cheby_points)
+            d_y_coeffs = problem_1_d_y_coeffs(tree.leaf_cheby_points)
 
             # Get the boundary data
-            g = problem_1_soln(tree.root_boundary_points)
+            g = problem_1_homog_soln(tree.root_boundary_points)
 
             # Solve the problem
             fused_pde_solve_2D(
@@ -113,12 +149,16 @@ def problem_1(l_vals: int, p_vals: int) -> None:
                 source_term=source,
                 D_xx_coeffs=lap_coeffs,
                 D_yy_coeffs=lap_coeffs,
+                D_x_coeffs=d_x_coeffs,
+                D_y_coeffs=d_y_coeffs,
                 boundary_data=g,
             )
 
             # Compute the error
             computed_soln = tree.interior_solns
-            expected_soln = problem_1_soln(tree.leaf_cheby_points)
+            expected_soln = problem_1_homog_soln(
+                tree.leaf_cheby_points
+            ) + problem_1_part_soln(tree.leaf_cheby_points)
 
             # plot soln
             # plot_soln_from_cheby_nodes(
