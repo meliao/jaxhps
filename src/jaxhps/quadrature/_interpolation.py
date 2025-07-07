@@ -32,31 +32,56 @@ def barycentric_lagrange_interpolation_matrix_1D(
         jax.Array: Has shape (p,n)
     """
     p = from_pts.shape[0]
-    n = to_pts.shape[0]
+    # n = to_pts.shape[0]
 
     # Compute the inverses of the Barycentric weights
-    w = jnp.ones(p, dtype=jnp.float64)
-    for j in range(p):
-        for k in range(p):
-            if j != k:
-                w = w.at[j].mul(from_pts[j] - from_pts[k])
+    # (2025-07-01, OOT) Vectorized version
+    from_di = jnp.arange(p)  # for use as diagonal indices for from_pts_x
+    tmp_from_dist = from_pts[:, jnp.newaxis] - from_pts[jnp.newaxis, :]
+    tmp_from_dist = tmp_from_dist.at[from_di, from_di].set(1)
+    w = jnp.prod(tmp_from_dist, axis=0)
+    # # Original version
+    # w = jnp.ones(p, dtype=jnp.float64)
+    # for j in range(p):
+    #     for k in range(p):
+    #         if j != k:
+    #             w = w.at[j].mul(from_pts[j] - from_pts[k])
 
     # print("barycentric_lagrange_interpolation_matrix: w", w)
 
     # Normalizing factor is sum_j w_j / (x - x_j)
-    norm_factors = jnp.zeros(n, dtype=jnp.float64)
-    for i in range(p):
-        norm_factors += 1 / (w[i] * (to_pts - from_pts[i]))
+    # (2025-07-01, OOT) Vectorized version
+    norm_factors = jnp.sum(
+        1
+        / (
+            w[:, jnp.newaxis]
+            * (to_pts[jnp.newaxis, :] - from_pts[:, jnp.newaxis])
+        ),
+        axis=0,
+    )
+    # # Original version
+    # norm_factors_ref = jnp.zeros(n, dtype=jnp.float64)
+    # for i in range(p):
+    #     norm_factors_ref += 1 / (w[i] * (to_pts - from_pts[i]))
+    # print(jnp.all(norm_factors_ref==norm_factors))
 
-        # print("barycentric_lagrange_interpolation_matrix: norm_factors", norm_factors)
+    # print("barycentric_lagrange_interpolation_matrix: norm_factors", norm_factors)
 
     # Compute the matrix
-    matrix = jnp.zeros((n, p), dtype=jnp.float64)
-    for i in range(n):
-        for j in range(p):
-            matrix = matrix.at[i, j].set(
-                1 / ((to_pts[i] - from_pts[j]) * w[j] * norm_factors[i])
-            )
+    # (2025-07-01, OOT) Vectorized version
+    matrix = 1 / (
+        (to_pts[:, jnp.newaxis] - from_pts[jnp.newaxis, :])
+        * w[jnp.newaxis, :]
+        * norm_factors[:, jnp.newaxis]
+    )
+    # # Original version
+    # matrix_ref = jnp.zeros((n, p), dtype=jnp.float64)
+    # for i in range(n):
+    #     for j in range(p):
+    #         matrix_ref = matrix_ref.at[i, j].set(
+    #             1 / ((to_pts[i] - from_pts[j]) * w[j] * norm_factors[i])
+    #         )
+    # print(jnp.all(matrix==matrix_ref))
 
     # Check if any of the source and target points overlap
     # This code is semantically the same as what comes after.
@@ -132,19 +157,29 @@ def barycentric_lagrange_interpolation_matrix_2D(
     # print("barycentric_lagrange_2d_interpolation_matrix: n, p", n, p)
 
     # Compute the inverses of the barycentric weights for x and y dimensions.
-    # w_x[j] = \prod_{k != j} (from_pts_x[j] - from_pts_x[k])
-    w_x = jnp.ones(n_x, dtype=jnp.float64)
-    w_y = jnp.ones(n_y, dtype=jnp.float64)
+    # # w_x[j] = \prod_{k != j} (from_pts_x[j] - from_pts_x[k])
+    # (2025-06-20, OOT) Vectorized version
+    # Seems to be a bit faster than the original
+    from_x_di = jnp.arange(n_x)  # for use as diagonal indices for from_pts_x
+    tmp_from_xdist = from_pts_x[:, jnp.newaxis] - from_pts_x[jnp.newaxis, :]
+    tmp_from_xdist = tmp_from_xdist.at[from_x_di, from_x_di].set(1)
+    w_x = jnp.prod(tmp_from_xdist, axis=0)
+    from_y_di = jnp.arange(n_y)
+    tmp_from_ydist = from_pts_y[:, jnp.newaxis] - from_pts_y[jnp.newaxis, :]
+    tmp_from_ydist = tmp_from_ydist.at[from_y_di, from_y_di].set(1)
+    w_y = jnp.prod(tmp_from_ydist, axis=0)
 
-    for j in range(n_x):
-        for k in range(n_x):
-            if j != k:
-                w_x = w_x.at[j].mul(from_pts_x[j] - from_pts_x[k])
-
-    for j in range(n_y):
-        for k in range(n_y):
-            if j != k:
-                w_y = w_y.at[j].mul(from_pts_y[j] - from_pts_y[k])
+    # # Original version
+    # w_x = jnp.ones(n_x, dtype=jnp.float64)
+    # w_y = jnp.ones(n_y, dtype=jnp.float64)
+    # for j in range(n_x):
+    #     for k in range(n_x):
+    #         if j != k:
+    #             w_x = w_x.at[j].mul(from_pts_x[j] - from_pts_x[k])
+    # for j in range(n_y):
+    #     for k in range(n_y):
+    #         if j != k:
+    #             w_y = w_y.at[j].mul(from_pts_y[j] - from_pts_y[k])
 
     # Compute matrix of distances between x and y points.
     xdist = to_pts_x[None, :] - from_pts_x[:, None]
@@ -227,21 +262,35 @@ def barycentric_lagrange_interpolation_matrix_3D(
     p_z = to_pts_z.shape[0]
 
     # Compute the inverses of the barycentric weights for x, y, and z dimensions.
-    w_x = jnp.ones(n_x, dtype=jnp.float64)
-    for j in range(n_x):
-        for k in range(n_x):
-            if j != k:
-                w_x = w_x.at[j].mul(from_pts_x[j] - from_pts_x[k])
-    w_y = jnp.ones(n_y, dtype=jnp.float64)
-    for j in range(n_y):
-        for k in range(n_y):
-            if j != k:
-                w_y = w_y.at[j].mul(from_pts_y[j] - from_pts_y[k])
-    w_z = jnp.ones(n_z, dtype=jnp.float64)
-    for j in range(n_z):
-        for k in range(n_z):
-            if j != k:
-                w_z = w_z.at[j].mul(from_pts_z[j] - from_pts_z[k])
+    # (2025-07-01, OOT) Vectorized version
+    from_x_di = jnp.arange(n_x)  # for use as diagonal indices for from_pts_x
+    tmp_from_xdist = from_pts_x[:, jnp.newaxis] - from_pts_x[jnp.newaxis, :]
+    tmp_from_xdist = tmp_from_xdist.at[from_x_di, from_x_di].set(1)
+    w_x = jnp.prod(tmp_from_xdist, axis=0)
+    from_y_di = jnp.arange(n_y)  # for use as diagonal indices for from_pts_y
+    tmp_from_ydist = from_pts_y[:, jnp.newaxis] - from_pts_y[jnp.newaxis, :]
+    tmp_from_ydist = tmp_from_ydist.at[from_y_di, from_y_di].set(1)
+    w_y = jnp.prod(tmp_from_ydist, axis=0)
+    from_z_di = jnp.arange(n_z)  # for use as diagonal indices for from_pts_z
+    tmp_from_zdist = from_pts_z[:, jnp.newaxis] - from_pts_z[jnp.newaxis, :]
+    tmp_from_zdist = tmp_from_zdist.at[from_z_di, from_z_di].set(1)
+    w_z = jnp.prod(tmp_from_zdist, axis=0)
+    # # Original version
+    # w_x = jnp.ones(n_x, dtype=jnp.float64)
+    # for j in range(n_x):
+    #     for k in range(n_x):
+    #         if j != k:
+    #             w_x = w_x.at[j].mul(from_pts_x[j] - from_pts_x[k])
+    # w_y = jnp.ones(n_y, dtype=jnp.float64)
+    # for j in range(n_y):
+    #     for k in range(n_y):
+    #         if j != k:
+    #             w_y = w_y.at[j].mul(from_pts_y[j] - from_pts_y[k])
+    # w_z = jnp.ones(n_z, dtype=jnp.float64)
+    # for j in range(n_z):
+    #     for k in range(n_z):
+    #         if j != k:
+    #                 w_z = w_z.at[j].mul(from_pts_z[j] - from_pts_z[k])
 
     # Compute the normalization factors for x, y, and z dimensions.
     xdist = to_pts_x[None, :] - from_pts_x[:, None]
