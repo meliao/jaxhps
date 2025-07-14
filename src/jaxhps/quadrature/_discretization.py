@@ -22,7 +22,7 @@ def chebyshev_points(n: int) -> jax.Array:
         n (int): number of Chebyshev points to return
 
     Returns:
-        jax.Array: The sampled points in [-1, 1] and the corresponding angles in [0, pi]
+        jax.Array: The sampled points in [-1, 1]
     """
     cos_args = jnp.arange(n, dtype=jnp.float64) / (n - 1)
     angles = jnp.flipud(jnp.pi * cos_args)
@@ -34,6 +34,25 @@ def chebyshev_points(n: int) -> jax.Array:
     # weights = weights / nrms
     # weights = weights.at[0].set(0.0)
     # weights = weights.at[-1].set(0.0)
+    return pts
+
+
+@partial(jax.jit, static_argnums=(0,))
+def first_kind_chebyshev_points(n: int) -> jax.Array:
+    """
+    Returns n Chebyshev points of the first kind over the interval [-1, 1].
+
+    out[k] = cos(pi / n * ((n-1) - k + 1/2)) for k={0,...,n-1}
+
+    Args:
+        n (int): number of Chebyshev points to return
+
+    Returns:
+        jax.Array: The sampled points in [-1, 1]
+    """
+    cos_args = (n - 1 - jnp.arange(n, dtype=jnp.float64) + 0.5) / n
+    angles = jnp.pi * cos_args
+    pts = jnp.cos(angles)
     return pts
 
 

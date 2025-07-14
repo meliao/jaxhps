@@ -5,6 +5,7 @@ from ._grid_creation_2D import rearrange_indices_ext_int
 from .quadrature import (
     differentiation_matrix_1D,
     chebyshev_points,
+    first_kind_chebyshev_points,
     gauss_points,
     affine_transform,
     barycentric_lagrange_interpolation_matrix_1D,
@@ -42,6 +43,51 @@ def precompute_diff_operators_2D(
         du_dy @ du_dy,
         du_dx @ du_dy,
     )
+
+
+def precompute_rectangular_diff_operators_2D(
+    p: int, half_side_len: float
+) -> Tuple[jax.Array]:
+    """
+    Returns rectangular spectral differentiation operators. That is, each operator maps from a 2D
+    grid of p^2 Chebyshev points of the second kind to a grid of (p-2)^2 Chebyshev points of the first kind.
+
+    See this paper for details: "Rectangular spectral collocation", Tobin A. Driscoll and Nicholas Hale. https://doi.org/10.1093/imanum/dru062
+
+    Returns, in order, D_x, D_y, D_xx, D_yy, D_xy, B. The final output, B, is the interpolation matrix from the p^2 grid to the
+    (p-2)^2 grid.
+
+    Args:
+        p (int): Number of Chebyshev grid points in each dimension.
+        half_side_len (float): Half the length of the side of the square domain.
+
+    Returns:
+        Tuple[jax.Array]: D_x, D_y, D_xx, D_yy, D_xy, B. Each matrix has shape (p**2 - 4p + 4, p**2)
+    """
+
+    D_x, D_y, D_xx, D_yy, D_xy = precompute_diff_operators_2D(p, half_side_len)
+
+    # Precompute a 2D barycentric Lagrange interpolation matrix
+    cheby_pts_1d = chebyshev_points(p)
+    from_x = cheby_pts_1d
+    from_y = jnp.flipud(cheby_pts_1d)
+    to_x = first_kind_chebyshev_points(p - 2)
+    to_y = jnp.flipud(to_x)
+    B = barycentric_lagrange_interpolation_matrix_2D(
+        from_x, from_y, to_x, to_y
+    )
+    # Rearrange the cols of the interpolation matrix to match the expected grid ordering
+    rearrange_indices = rearrange_indices_ext_int(p)
+    B = B[:, rearrange_indices]
+
+    # Apply the barycentric Lagrange interpolation matrix to the differentiation operators
+    D_x = B @ D_x
+    D_y = B @ D_y
+    D_xx = B @ D_xx
+    D_yy = B @ D_yy
+    D_xy = B @ D_xy
+
+    return (D_x, D_y, D_xx, D_yy, D_xy, B)
 
 
 # Unclear whether this is a win to jit this one.

@@ -1,6 +1,7 @@
 from ._differentiation import differentiation_matrix_1D
 from ._discretization import (
     chebyshev_points,
+    first_kind_chebyshev_points,
     chebyshev_weights,
     affine_transform,
     gauss_points,
@@ -17,6 +18,7 @@ __all__ = [
     "differentiation_matrix_1D",
     "chebyshev_points",
     "chebyshev_weights",
+    "first_kind_chebyshev_points",
     "affine_transform",
     "gauss_points",
     "barycentric_lagrange_interpolation_matrix_1D",

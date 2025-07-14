@@ -145,6 +145,41 @@ class Test_PDEProblem_init:
         assert pde_problem.G.shape == (4 * (p - 1), p**2)
         assert pde_problem.QH.shape == (4 * q, p**2)
 
+    def test_4(self) -> None:
+        """2D DtN initialization using rectangular spectral collocation method."""
+
+        # Create a 2D uniform domain
+        xmin = 0.0
+        xmax = 1.0
+        ymin = 0.0
+        ymax = 1.0
+        p = 6
+        q = 4
+        L = 2
+        root = DiscretizationNode2D(
+            xmin=xmin,
+            xmax=xmax,
+            ymin=ymin,
+            ymax=ymax,
+        )
+        domain = Domain(p=p, q=q, root=root, L=L)
+
+        source = jnp.zeros_like(domain.interior_points[..., 0])
+        D_xx_coefficients = jnp.zeros_like(domain.interior_points[..., 0])
+
+        pde_problem = PDEProblem(
+            domain=domain,
+            source=source,
+            D_xx_coefficients=D_xx_coefficients,
+            use_rectangular_spectral_collocation=True,
+        )
+
+        # Check the shape of the precomputed operators.
+        assert pde_problem.D_x.shape == ((p - 2) ** 2, p**2)
+        assert pde_problem.B.shape == ((p - 2) ** 2, p**2)
+        assert pde_problem.P.shape == (4 * (p - 1), 4 * q)
+        assert pde_problem.Q.shape == (4 * q, p**2)
+
 
 class Test__get_PDEProblem_chunk:
     def test_0(self) -> None:

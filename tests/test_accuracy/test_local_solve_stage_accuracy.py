@@ -12,6 +12,7 @@ from jaxhps.local_solve._nosource_uniform_2D_ItI import (
 )
 from jaxhps.local_solve._uniform_2D_ItI import local_solve_stage_uniform_2D_ItI
 
+
 # from jaxhps._utils import plot_soln_from_cheby_nodes
 from .cases import (
     XMIN,
@@ -131,7 +132,11 @@ def check_leaf_accuracy_nosource_ItI_uniform(
     )
 
 
-def check_leaf_accuracy_DtN(domain: Domain, test_case: Dict) -> None:
+def check_leaf_accuracy_DtN(
+    domain: Domain,
+    test_case: Dict,
+    use_rectangular_spectral_collocation: bool = False,
+) -> None:
     d_xx_coeffs = test_case[K_XX_COEFF](domain.interior_points)
     d_yy_coeffs = test_case[K_YY_COEFF](domain.interior_points)
     source = test_case[K_SOURCE](domain.interior_points).squeeze(2)
@@ -141,6 +146,7 @@ def check_leaf_accuracy_DtN(domain: Domain, test_case: Dict) -> None:
         source=source,
         D_xx_coefficients=d_xx_coeffs,
         D_yy_coefficients=d_yy_coeffs,
+        use_rectangular_spectral_collocation=use_rectangular_spectral_collocation,
     )
 
     logging.debug("d_xx_coeffs shape: %s", d_xx_coeffs.shape)
@@ -186,6 +192,12 @@ def check_leaf_accuracy_DtN(domain: Domain, test_case: Dict) -> None:
         "check_leaf_accuracy_DtN: expected_outgoing_data shape: %s",
         expected_outgoing_data.shape,
     )
+
+    # Plot the expected and computed outgoing data
+    # plt.plot(computed_outgoing_data, label="Computed Outgoing Data")
+    # plt.plot(expected_outgoing_data, label="Expected Outgoing Data")
+    # plt.legend()
+    # plt.show()
 
     assert jnp.allclose(
         computed_outgoing_data, expected_outgoing_data, atol=ATOL, rtol=RTOL
@@ -567,6 +579,36 @@ class Test_accuracy_local_solve_stage_uniform_2D_DtN:
         domain = DOMAIN_DTN
 
         check_leaf_accuracy_DtN(domain, test_case)
+
+        jax.clear_caches()
+
+    def test_2(self, caplog) -> None:
+        """
+        Uses TEST_CASE_POLY_ZERO_SOURCE with rectangular spectral collocation.
+        """
+        caplog.set_level(logging.DEBUG)
+        ##############################################################
+        # Set up the test case
+        test_case = TEST_CASE_POLY_ZERO_SOURCE
+        domain = DOMAIN_DTN
+
+        check_leaf_accuracy_DtN(
+            domain, test_case, use_rectangular_spectral_collocation=True
+        )
+
+    def test_3(self, caplog) -> None:
+        """
+        Uses TEST_CASE_POLY_PART_HOMOG with rectangular spectral collocation.
+        """
+        caplog.set_level(logging.DEBUG)
+        ##############################################################
+        # Set up the test case
+        test_case = TEST_CASE_POLY_PART_HOMOG
+        domain = DOMAIN_DTN
+
+        check_leaf_accuracy_DtN(
+            domain, test_case, use_rectangular_spectral_collocation=True
+        )
 
         jax.clear_caches()
 

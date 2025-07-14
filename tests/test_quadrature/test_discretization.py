@@ -1,10 +1,12 @@
 from jaxhps.quadrature import (
     chebyshev_points,
+    first_kind_chebyshev_points,
     chebyshev_weights,
     affine_transform,
 )
 
 import jax.numpy as jnp
+import logging
 
 
 class Test_chebyshev_weights:
@@ -124,3 +126,14 @@ class Test_affine_transform:
         y = affine_transform(x, ab)
         expected_y = x * 0.5 + 0.5
         assert jnp.allclose(y, expected_y)
+
+
+class Test_first_kind_chebyshev_points:
+    def test_0(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
+        n = 2
+        p = first_kind_chebyshev_points(n)
+        logging.info("p = %s", p)
+        expected_p = jnp.array([-1 / jnp.sqrt(2), 1.0 / jnp.sqrt(2)])
+        logging.info("expected_p = %s", expected_p)
+        assert jnp.allclose(p, expected_p)

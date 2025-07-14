@@ -4,6 +4,7 @@ from ._domain import Domain
 from ._discretization_tree import DiscretizationNode3D, get_all_leaves
 from ._precompute_operators_2D import (
     precompute_diff_operators_2D,
+    precompute_rectangular_diff_operators_2D,
     precompute_P_2D_DtN,
     precompute_Q_2D_DtN,
     precompute_P_2D_ItI,
@@ -38,6 +39,7 @@ class PDEProblem:
         D_z_coefficients: jax.Array = None,
         I_coefficients: jax.Array = None,
         use_ItI: bool = False,
+        use_rectangular_spectral_collocation: bool = False,
         eta: float = None,
     ):
         self.domain: Domain = domain  #: The domain, which contains information about the discretization.
@@ -96,6 +98,11 @@ class PDEProblem:
             D_y_coefficients=D_y_coefficients,
             D_z_coefficients=D_z_coefficients,
             I_coefficients=I_coefficients,
+        )
+
+        # Store various flags
+        self.bool_rectangular_spectral_collocation = (
+            use_rectangular_spectral_collocation
         )
 
         # Store coefficients
@@ -157,9 +164,18 @@ class PDEProblem:
             self.D_xy: jax.Array = None
             # #: Spectral differentiation matrix in yy direction. Has shape (p^d, p^d).
             self.D_yy: jax.Array = None
-            self.D_x, self.D_y, self.D_xx, self.D_yy, self.D_xy = (
-                precompute_diff_operators_2D(domain.p, half_side_len)
-            )
+            # #: Interpolation matrix used in the rectangular spectral collocation method.
+            self.B: jax.Array = None
+            if use_rectangular_spectral_collocation:
+                self.D_x, self.D_y, self.D_xx, self.D_yy, self.D_xy, self.B = (
+                    precompute_rectangular_diff_operators_2D(
+                        domain.p, half_side_len
+                    )
+                )
+            else:
+                self.D_x, self.D_y, self.D_xx, self.D_yy, self.D_xy = (
+                    precompute_diff_operators_2D(domain.p, half_side_len)
+                )
             if not use_ItI:
                 # Interpolation / Differentiation matrices for DtN merges
                 self.P = precompute_P_2D_DtN(domain.p, domain.q)
@@ -369,6 +385,7 @@ def _get_PDEProblem_chunk(
     new_pde_problem.D_xx = pde_problem.D_xx
     new_pde_problem.D_xy = pde_problem.D_xy
     new_pde_problem.D_yy = pde_problem.D_yy
+    new_pde_problem.B = pde_problem.B
     # 3D differential operators
     if not pde_problem.domain.bool_2D:
         new_pde_problem.D_z = pde_problem.D_z

@@ -2,6 +2,7 @@ import jax.numpy as jnp
 
 from jaxhps._precompute_operators_2D import (
     precompute_diff_operators_2D,
+    precompute_rectangular_diff_operators_2D,
     precompute_N_matrix_2D,
     precompute_P_2D_ItI,
     precompute_G_2D_ItI,
@@ -15,6 +16,7 @@ from jaxhps._grid_creation_2D import (
     compute_boundary_Gauss_points_adaptive_2D,
 )
 from jaxhps.quadrature import affine_transform, gauss_points
+import logging
 
 
 class Test_precompute_P_2D_ItI:
@@ -404,3 +406,30 @@ class Test_precompute_projection_ops_2D:
         f_coarse = coarse @ f_ref_expected
         f_coarse_expected = f_vals
         assert jnp.allclose(f_coarse, f_coarse_expected)
+
+
+class Test_precompute_rectangular_diff_operators_2D:
+    def test_0(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
+
+        p = 4
+        half_side_len = 0.5
+        D_x, D_y, D_xx, D_yy, D_xy, B = (
+            precompute_rectangular_diff_operators_2D(p, half_side_len)
+        )
+        expected_shape = ((p - 2) ** 2, p**2)
+        assert D_x.shape == expected_shape
+        assert D_y.shape == expected_shape
+        assert D_xx.shape == expected_shape
+        assert D_yy.shape == expected_shape
+        assert D_xy.shape == expected_shape
+        assert not jnp.any(jnp.isnan(D_x))
+        assert not jnp.any(jnp.isinf(D_x))
+        assert not jnp.any(jnp.isnan(D_y))
+        assert not jnp.any(jnp.isinf(D_y))
+        assert not jnp.any(jnp.isnan(D_xx))
+        assert not jnp.any(jnp.isinf(D_xx))
+        assert not jnp.any(jnp.isnan(D_yy))
+        assert not jnp.any(jnp.isinf(D_yy))
+        assert not jnp.any(jnp.isnan(D_xy))
+        assert not jnp.any(jnp.isinf(D_xy))
