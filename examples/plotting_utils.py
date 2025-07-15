@@ -127,6 +127,8 @@ def plot_field_for_wave_scattering_experiment(
         if save_fp is not None:
             fig.tight_layout()
             plt.savefig(save_fp, bbox_inches="tight")
+        else:
+            plt.show()
 
 
 CMAP_PAD = 0.1
