@@ -172,16 +172,21 @@ class PDEProblem:
                         domain.p, half_side_len
                     )
                 )
+                # The non-rectangular differentiation operators are needed
+                # for the computation of the Q interpolation matrix.
+                D_x, D_y, _, _, _ = precompute_diff_operators_2D(
+                    domain.p, half_side_len
+                )
             else:
                 self.D_x, self.D_y, self.D_xx, self.D_yy, self.D_xy = (
                     precompute_diff_operators_2D(domain.p, half_side_len)
                 )
+                D_x = self.D_x
+                D_y = self.D_y
             if not use_ItI:
                 # Interpolation / Differentiation matrices for DtN merges
                 self.P = precompute_P_2D_DtN(domain.p, domain.q)
-                self.Q = precompute_Q_2D_DtN(
-                    domain.p, domain.q, self.D_x, self.D_y
-                )
+                self.Q = precompute_Q_2D_DtN(domain.p, domain.q, D_x, D_y)
             else:
                 # Interpolation / Differentiation matrices for ItI merges
                 self.P = precompute_P_2D_ItI(domain.p, domain.q)

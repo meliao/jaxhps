@@ -56,7 +56,9 @@ DOMAIN_ITI_NONPOLY = Domain(p=P_NONPOLY, q=Q_NONPOLY, root=ROOT_ITI, L=1)
 
 
 def check_merge_accuracy_2D_DtN_uniform(
-    domain: Domain, test_case: Dict
+    domain: Domain,
+    test_case: Dict,
+    use_rectangular_spectral_collocation: bool = False,
 ) -> None:
     d_xx_coeffs = test_case[K_XX_COEFF](domain.interior_points)
     d_yy_coeffs = test_case[K_YY_COEFF](domain.interior_points)
@@ -80,6 +82,7 @@ def check_merge_accuracy_2D_DtN_uniform(
         D_xx_coefficients=d_xx_coeffs,
         D_yy_coefficients=d_yy_coeffs,
         source=source_term,
+        use_rectangular_spectral_collocation=use_rectangular_spectral_collocation,
     )
 
     # Do the local solve and build stages
@@ -389,6 +392,25 @@ class Test_accuracy_single_merge_2D_DtN_uniform:
         caplog.set_level(logging.DEBUG)
         check_merge_accuracy_2D_DtN_uniform(
             DOMAIN_DTN, TEST_CASE_POLY_PART_HOMOG
+        )
+        jax.clear_caches()
+
+    def test_2(self, caplog) -> None:
+        """Polynomial data with zero source term. Uses the rectangular spectral collocation method."""
+        caplog.set_level(logging.DEBUG)
+        check_merge_accuracy_2D_DtN_uniform(
+            DOMAIN_DTN,
+            TEST_CASE_POLY_ZERO_SOURCE,
+            use_rectangular_spectral_collocation=True,
+        )
+
+    def test_3(self, caplog) -> None:
+        """Polynomial data with non-zero source term. Uses the rectangular spectral collocation methd."""
+        caplog.set_level(logging.DEBUG)
+        check_merge_accuracy_2D_DtN_uniform(
+            DOMAIN_DTN,
+            TEST_CASE_POLY_PART_HOMOG,
+            use_rectangular_spectral_collocation=True,
         )
         jax.clear_caches()
 

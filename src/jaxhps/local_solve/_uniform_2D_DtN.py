@@ -58,6 +58,9 @@ def local_solve_stage_uniform_2D_DtN(
     # stack the precomputed differential operators into a single array
 
     if pde_problem.bool_rectangular_spectral_collocation:
+        logging.debug(
+            "local_solve_stage_uniform_2D_DtN: using rectangular spectral collocation"
+        )
         diff_ops = jnp.stack(
             [
                 pde_problem.D_xx,
@@ -69,6 +72,9 @@ def local_solve_stage_uniform_2D_DtN(
             ]
         )
     else:
+        logging.debug(
+            "local_solve_stage_uniform_2D_DtN: using standard operators"
+        )
         diff_ops = jnp.stack(
             [
                 pde_problem.D_xx,
@@ -321,7 +327,7 @@ def get_DtN_rectangular(
         Q (jax.Array): Array of size (4q, p**2) containing the matrix interpolating from a soln on the interior
                     to that soln's boundary fluxes on the Gauss boundary.
         P (jax.Array): Array of size (4(p-1), 4q) containing the matrix interpolating from the Gauss to the Cheby boundary.
-    B (jax.Array): Array of size ((p-2)**2, p**2) containing the operator interpolating from the Chebyshev grid of the 2nd kind
+        B (jax.Array): Array of size ((p-2)**2, p**2) containing the operator interpolating from the Chebyshev grid of the 2nd kind
                     to the Chebyshev grid of the 1st kind.
 
     Returns:
