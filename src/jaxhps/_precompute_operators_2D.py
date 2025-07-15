@@ -45,6 +45,32 @@ def precompute_diff_operators_2D(
     )
 
 
+def rectangular_interp_operator(p: int) -> jax.Array:
+    """
+    Returns an interpolation operator that maps from a grid of p^2 2nd-kind Chebyshev points to a grid of (p-2)^2 1st-kind Chebyshev points.
+
+    Args:
+        p (int): Number of points per dimension on the 2nd-kind Chebyshev grid.
+
+    Returns:
+        jax.Array: Has shape ((p - 2) ** 2, p ** 2).
+    """
+
+    # Precompute a 2D barycentric Lagrange interpolation matrix
+    cheby_pts_1d = chebyshev_points(p)
+    from_x = cheby_pts_1d
+    from_y = jnp.flipud(cheby_pts_1d)
+    to_x = first_kind_chebyshev_points(p - 2)
+    to_y = jnp.flipud(to_x)
+    B = barycentric_lagrange_interpolation_matrix_2D(
+        from_x, from_y, to_x, to_y
+    )
+    # Rearrange the cols of the interpolation matrix to match the expected grid ordering
+    rearrange_indices = rearrange_indices_ext_int(p)
+    B = B[:, rearrange_indices]
+    return B
+
+
 def precompute_rectangular_diff_operators_2D(
     p: int, half_side_len: float
 ) -> Tuple[jax.Array]:
@@ -67,18 +93,7 @@ def precompute_rectangular_diff_operators_2D(
 
     D_x, D_y, D_xx, D_yy, D_xy = precompute_diff_operators_2D(p, half_side_len)
 
-    # Precompute a 2D barycentric Lagrange interpolation matrix
-    cheby_pts_1d = chebyshev_points(p)
-    from_x = cheby_pts_1d
-    from_y = jnp.flipud(cheby_pts_1d)
-    to_x = first_kind_chebyshev_points(p - 2)
-    to_y = jnp.flipud(to_x)
-    B = barycentric_lagrange_interpolation_matrix_2D(
-        from_x, from_y, to_x, to_y
-    )
-    # Rearrange the cols of the interpolation matrix to match the expected grid ordering
-    rearrange_indices = rearrange_indices_ext_int(p)
-    B = B[:, rearrange_indices]
+    B = rectangular_interp_operator(p)
 
     # Apply the barycentric Lagrange interpolation matrix to the differentiation operators
     D_x = B @ D_x

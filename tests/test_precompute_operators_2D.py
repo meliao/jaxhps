@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from jaxhps._precompute_operators_2D import (
     precompute_diff_operators_2D,
     precompute_rectangular_diff_operators_2D,
+    rectangular_interp_operator,
     precompute_N_matrix_2D,
     precompute_P_2D_ItI,
     precompute_G_2D_ItI,
@@ -15,7 +16,13 @@ from jaxhps._grid_creation_2D import (
     compute_interior_Chebyshev_points_adaptive_2D,
     compute_boundary_Gauss_points_adaptive_2D,
 )
-from jaxhps.quadrature import affine_transform, gauss_points
+from jaxhps.quadrature import (
+    affine_transform,
+    gauss_points,
+    first_kind_chebyshev_points,
+)
+
+# from jaxhps._utils import plot_soln_from_cheby_nodes
 import logging
 
 
@@ -433,3 +440,228 @@ class Test_precompute_rectangular_diff_operators_2D:
         assert not jnp.any(jnp.isinf(D_yy))
         assert not jnp.any(jnp.isnan(D_xy))
         assert not jnp.any(jnp.isinf(D_xy))
+
+    def test_1(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
+        """Check that low-degree polynomials are handled correctly."""
+        p = 8
+        north = jnp.pi / 2
+        south = -jnp.pi / 2
+        east = jnp.pi / 2
+        west = -jnp.pi / 2
+
+        # north = 1.0
+        # south = -1.0
+        # east = 1.0
+        # west = -1.0
+
+        half_side_len = (east - west) / 2
+        root = DiscretizationNode2D(
+            xmin=west, xmax=east, ymin=south, ymax=north
+        )
+
+        # Compute interpolation operator
+        D_x, D_y, _, _, _, B = precompute_rectangular_diff_operators_2D(
+            p, half_side_len
+        )
+        to_x = affine_transform(
+            first_kind_chebyshev_points(p - 2), jnp.array([west, east])
+        )
+        to_y = jnp.flipud(to_x)
+        # Set up target grid
+        target_X, target_Y = jnp.meshgrid(to_x, to_y, indexing="ij")
+        target_pts = jnp.stack(
+            (target_X.flatten(), target_Y.flatten()), axis=-1
+        )
+
+        source_pts = compute_interior_Chebyshev_points_adaptive_2D(root, p)[0]
+
+        logging.info(
+            "target_pts shape: %s, and source_pts shape: %s",
+            target_pts.shape,
+            source_pts.shape,
+        )
+
+        def f(x: jnp.array) -> jnp.array:
+            # f(x,y) = x^2 - 3y
+            return x[..., 0] ** 2 - 3 * x[..., 1]
+
+        def dfdx(x: jnp.array) -> jnp.array:
+            # df/dx = 2x
+            return 2 * x[..., 0]
+
+        def dfdy(x: jnp.array) -> jnp.array:
+            # df/dy = -3
+            return -3 * jnp.ones_like(x[..., 1])
+
+        # First, test Dx
+
+        f_src = f(source_pts)
+        dfdx_target = dfdx(target_pts)
+        dfdx_computed = D_x @ f_src
+
+        logging.debug("dfdx_target: %s", dfdx_target)
+        logging.debug("dfdx_computed: %s", dfdx_computed)
+        logging.debug("diffs: %s", dfdx_target - dfdx_computed)
+
+        # plot_soln_from_cheby_nodes(
+        #     target_pts,
+        #     corners=None,
+        #     expected_soln=f_target,
+        #     computed_soln=f_interp,
+        # )
+        assert jnp.allclose(dfdx_computed, dfdx_target)
+
+        # Next, test Dy
+        f_src = f(source_pts)
+        dfdy_target = dfdy(target_pts)
+        dfdy_computed = D_y @ f_src
+        logging.debug("dfdy_target: %s", dfdy_target)
+        logging.debug("dfdy_computed: %s", dfdy_computed)
+        logging.debug("diffs: %s", dfdy_target - dfdy_computed)
+        # plot_soln_from_cheby_nodes(
+        #     target_pts,
+        #     corners=None,
+        #     expected_soln=f_target,
+        #     computed_soln=f_interp,
+        # )
+        assert jnp.allclose(dfdy_computed, dfdy_target)
+
+
+class Test_rectangular_interp_operator:
+    def test_0(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
+        p = 4
+        B = rectangular_interp_operator(p)
+        expected_shape = ((p - 2) ** 2, p**2)
+        assert B.shape == expected_shape
+        assert not jnp.any(jnp.isnan(B))
+        assert not jnp.any(jnp.isinf(B))
+
+    def test_1(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
+        """Check that low-degree polynomials are handled correctly."""
+        p = 8
+        north = jnp.pi / 2
+        south = -jnp.pi / 2
+        east = jnp.pi / 2
+        west = -jnp.pi / 2
+
+        # north = 1.0
+        # south = -1.0
+        # east = 1.0
+        # west = -1.0
+
+        # half_side_len = (east - west) / 2
+        root = DiscretizationNode2D(
+            xmin=west, xmax=east, ymin=south, ymax=north
+        )
+
+        # Compute interpolation operator
+        B = rectangular_interp_operator(p)
+        to_x = affine_transform(
+            first_kind_chebyshev_points(p - 2), jnp.array([west, east])
+        )
+        to_y = jnp.flipud(to_x)
+        # Set up target grid
+        target_X, target_Y = jnp.meshgrid(to_x, to_y, indexing="ij")
+        target_pts = jnp.stack(
+            (target_X.flatten(), target_Y.flatten()), axis=-1
+        )
+
+        source_pts = compute_interior_Chebyshev_points_adaptive_2D(root, p)[0]
+
+        logging.info(
+            "target_pts shape: %s, and source_pts shape: %s",
+            target_pts.shape,
+            source_pts.shape,
+        )
+
+        def f(x: jnp.array) -> jnp.array:
+            # f(x,y) = x^2 - 3y
+            return x[..., 0] ** 2 - 3 * x[..., 1]
+
+        f_src = f(source_pts)
+        f_target = f(target_pts)
+        logging.info(
+            "f_src shape: %s, and f_target shape: %s",
+            f_src.shape,
+            f_target.shape,
+        )
+        f_interp = B @ f_src
+
+        logging.debug("f_target: %s", f_target)
+        logging.debug("f_interp: %s", f_interp)
+        logging.debug("diffs: %s", f_target - f_interp)
+
+        # plot_soln_from_cheby_nodes(
+        #     target_pts,
+        #     corners=None,
+        #     expected_soln=f_target,
+        #     computed_soln=f_interp,
+        # )
+        assert jnp.allclose(f_interp, f_target)
+
+    def test_2(self, caplog) -> None:
+        caplog.set_level(logging.DEBUG)
+        """Check that low-degree polynomials are handled correctly."""
+        p = 8
+        north = jnp.pi / 2
+        south = -jnp.pi / 2
+        east = jnp.pi / 2
+        west = -jnp.pi / 2
+
+        # north = 1.0
+        # south = -1.0
+        # east = 1.0
+        # west = -1.0
+
+        # half_side_len = (east - west) / 2
+        root = DiscretizationNode2D(
+            xmin=west, xmax=east, ymin=south, ymax=north
+        )
+
+        # Compute interpolation operator
+        B = rectangular_interp_operator(p)
+        to_x = affine_transform(
+            first_kind_chebyshev_points(p - 2), jnp.array([west, east])
+        )
+        to_y = jnp.flipud(to_x)
+        # Set up target grid
+        target_X, target_Y = jnp.meshgrid(to_x, to_y, indexing="ij")
+        target_pts = jnp.stack(
+            (target_X.flatten(), target_Y.flatten()), axis=-1
+        )
+
+        source_pts = compute_interior_Chebyshev_points_adaptive_2D(root, p)[0]
+
+        logging.info(
+            "target_pts shape: %s, and source_pts shape: %s",
+            target_pts.shape,
+            source_pts.shape,
+        )
+
+        def f(x: jnp.array) -> jnp.array:
+            # f(x,y) = 2x - 3y^2
+            return 2 * x[..., 0] - 3 * x[..., 1] ** 2
+
+        f_src = f(source_pts)
+        f_target = f(target_pts)
+        logging.info(
+            "f_src shape: %s, and f_target shape: %s",
+            f_src.shape,
+            f_target.shape,
+        )
+        f_interp = B @ f_src
+
+        logging.debug("f_target: %s", f_target)
+        logging.debug("f_interp: %s", f_interp)
+        logging.debug("diffs: %s", f_target - f_interp)
+
+        # plot_soln_from_cheby_nodes(
+        #     target_pts,
+        #     corners=None,
+        #     expected_soln=f_target,
+        #     computed_soln=f_interp,
+        # )
+        assert jnp.allclose(f_interp, f_target)
