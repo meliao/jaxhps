@@ -166,11 +166,18 @@ class PDEProblem:
             self.D_yy: jax.Array = None
             # #: Interpolation matrix used in the rectangular spectral collocation method.
             self.B: jax.Array = None
+            self.D: jax.Array = None
             if use_rectangular_spectral_collocation:
-                self.D_x, self.D_y, self.D_xx, self.D_yy, self.D_xy, self.B = (
-                    precompute_rectangular_diff_operators_2D(
-                        domain.p, half_side_len
-                    )
+                (
+                    self.D_x,
+                    self.D_y,
+                    self.D_xx,
+                    self.D_yy,
+                    self.D_xy,
+                    self.B,
+                    self.D,
+                ) = precompute_rectangular_diff_operators_2D(
+                    domain.p, half_side_len
                 )
                 # The non-rectangular differentiation operators are needed
                 # for the computation of the Q interpolation matrix.

@@ -17,6 +17,10 @@ from ._device_config import (
     local_solve_chunksize_3D,
 )
 
+# TODO: Remove these imports.
+from ._utils import plot_soln_from_cheby_nodes
+from ._grid_creation_2D import rearrange_indices_ext_int
+
 # These will appear in the module's top-level namespace when imported
 __all__ = [
     "Domain",
@@ -31,5 +35,7 @@ __all__ = [
     "local_solve_chunksize_3D",
     "upward_pass_subtree",
     "downward_pass_subtree",
+    "plot_soln_from_cheby_nodes",
+    "rearrange_indices_ext_int",
 ]
 __version__ = "0.1"

@@ -2,6 +2,7 @@ import jax.numpy as jnp
 import jax
 
 from .._pdeproblem import PDEProblem
+from .._precompute_operators_2D import interpolate_cheby_to_cheby_first_kind
 from typing import Tuple
 import logging
 
@@ -69,6 +70,7 @@ def local_solve_stage_uniform_2D_DtN(
                 pde_problem.D_x,
                 pde_problem.D_y,
                 pde_problem.B,
+                pde_problem.D.T,
             ]
         )
     else:
@@ -109,6 +111,7 @@ def local_solve_stage_uniform_2D_DtN(
             pde_problem.Q,
             pde_problem.P,
             pde_problem.B,
+            pde_problem.D,
         )
     else:
         Y_arr, T_arr, v, h = vmapped_get_DtN_uniform(
@@ -318,6 +321,7 @@ def get_DtN_rectangular(
     Q: jax.Array,
     P: jax.Array,
     B: jax.Array,
+    D: jax.Array,
 ) -> Tuple[jax.Array]:
     """
     Args:
@@ -354,7 +358,7 @@ def get_DtN_rectangular(
     T = Q @ Y
 
     v = jnp.zeros((diff_operator.shape[1], n_src), dtype=jnp.float64)
-    proj_src = B @ source_term
+    proj_src = interpolate_cheby_to_cheby_first_kind(B, D, source_term)
     v = v.at[n_cheby_bdry:].set(A_i_inv @ proj_src)
     h = Q @ v
 
@@ -363,7 +367,7 @@ def get_DtN_rectangular(
 
 vmapped_get_DtN_uniform_rectangular = jax.vmap(
     get_DtN_rectangular,
-    in_axes=(0, 0, None, None, None),
+    in_axes=(0, 0, None, None, None, None),
     out_axes=(0, 0, 0, 0),
 )
 
@@ -374,11 +378,12 @@ def _add_rectangular(
     coeff: jax.Array,
     diff_op: jax.Array,
     B: jax.Array,
+    D: jax.Array,
 ) -> jax.Array:
     """One branch of add_or_not. Expects out to have shape ((p-2)**2, p**2),
     coeff has shape (p**2), diff_op has shape ((p-2)**2, p**2)."""
     # res = out + jnp.diag(coeff) @ diff_op
-    coeff_proj = B @ coeff
+    coeff_proj = interpolate_cheby_to_cheby_first_kind(B, D, coeff)
 
     res = out + jnp.einsum("ab,a->ab", diff_op, coeff_proj)
     return res
@@ -386,7 +391,11 @@ def _add_rectangular(
 
 @jax.jit
 def _not_rectangular(
-    out: jax.Array, coeff: jax.Array, diff_op: jax.Array, B: jax.Array
+    out: jax.Array,
+    coeff: jax.Array,
+    diff_op: jax.Array,
+    B: jax.Array,
+    D: jax.Array,
 ) -> jax.Array:
     return out
 
@@ -410,7 +419,8 @@ def add_or_not_rectangular(
         out,
         coeffs_arr[counter],
         diff_ops[i],
-        diff_ops[-1],  # B is the last operator in diff_ops
+        diff_ops[-2],  # B is the penultimate operator in diff_ops
+        diff_ops[-1],  # D is the last operator in diff_ops
     )
     counter = jax.lax.cond(
         which_coeffs[i],

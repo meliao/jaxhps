@@ -1,5 +1,6 @@
 import jax.numpy as jnp
-
+import jax
+import numpy as np
 from jaxhps._precompute_operators_2D import (
     precompute_diff_operators_2D,
     precompute_rectangular_diff_operators_2D,
@@ -10,6 +11,7 @@ from jaxhps._precompute_operators_2D import (
     precompute_N_tilde_matrix_2D,
     precompute_QH_2D_ItI,
     precompute_projection_ops_2D,
+    interpolate_cheby_to_cheby_first_kind,
 )
 from jaxhps._discretization_tree import DiscretizationNode2D
 from jaxhps._grid_creation_2D import (
@@ -421,7 +423,7 @@ class Test_precompute_rectangular_diff_operators_2D:
 
         p = 4
         half_side_len = 0.5
-        D_x, D_y, D_xx, D_yy, D_xy, B = (
+        D_x, D_y, D_xx, D_yy, D_xy, B, D = (
             precompute_rectangular_diff_operators_2D(p, half_side_len)
         )
         expected_shape = ((p - 2) ** 2, p**2)
@@ -461,7 +463,7 @@ class Test_precompute_rectangular_diff_operators_2D:
         )
 
         # Compute interpolation operator
-        D_x, D_y, _, _, _, B = precompute_rectangular_diff_operators_2D(
+        D_x, D_y, _, _, _, B, D = precompute_rectangular_diff_operators_2D(
             p, half_side_len
         )
         to_x = affine_transform(
@@ -532,11 +534,16 @@ class Test_rectangular_interp_operator:
     def test_0(self, caplog) -> None:
         caplog.set_level(logging.DEBUG)
         p = 4
-        B = rectangular_interp_operator(p)
+        B, D = rectangular_interp_operator(p)
         expected_shape = ((p - 2) ** 2, p**2)
         assert B.shape == expected_shape
         assert not jnp.any(jnp.isnan(B))
         assert not jnp.any(jnp.isinf(B))
+
+        expected_shape = (p**2, (p - 2) ** 2)
+        assert D.shape == expected_shape
+        assert not jnp.any(jnp.isnan(D))
+        assert not jnp.any(jnp.isinf(D))
 
     def test_1(self, caplog) -> None:
         caplog.set_level(logging.DEBUG)
@@ -558,7 +565,7 @@ class Test_rectangular_interp_operator:
         )
 
         # Compute interpolation operator
-        B = rectangular_interp_operator(p)
+        B, D = rectangular_interp_operator(p)
         to_x = affine_transform(
             first_kind_chebyshev_points(p - 2), jnp.array([west, east])
         )
@@ -602,6 +609,13 @@ class Test_rectangular_interp_operator:
         # )
         assert jnp.allclose(f_interp, f_target)
 
+        # Check that D interpolates correctly
+        f_interp_D = D @ f_target
+        logging.debug("f_interp_D: %s", f_interp_D)
+        logging.debug("f_src: %s", f_src)
+        logging.debug("diffs: %s", f_interp_D - f_src)
+        assert jnp.allclose(f_interp_D, f_src)
+
     def test_2(self, caplog) -> None:
         caplog.set_level(logging.DEBUG)
         """Check that low-degree polynomials are handled correctly."""
@@ -622,7 +636,7 @@ class Test_rectangular_interp_operator:
         )
 
         # Compute interpolation operator
-        B = rectangular_interp_operator(p)
+        B, D = rectangular_interp_operator(p)
         to_x = affine_transform(
             first_kind_chebyshev_points(p - 2), jnp.array([west, east])
         )
@@ -665,3 +679,86 @@ class Test_rectangular_interp_operator:
         #     computed_soln=f_interp,
         # )
         assert jnp.allclose(f_interp, f_target)
+        # Check that D interpolates correctly
+        f_interp_D = D @ f_target
+        logging.debug("f_interp_D: %s", f_interp_D)
+        logging.debug("f_src: %s", f_src)
+        logging.debug("diffs: %s", f_interp_D - f_src)
+        assert jnp.allclose(f_interp_D, f_src)
+
+
+class Test_interpolate_cheby_to_cheby_first_kind:
+    def test_0(self) -> None:
+        """Tests the interpolate_cheby_to_cheby_first_kind function returns without error and returns the correct shape."""
+        p = 8
+
+        B = jnp.array(np.random.normal(size=((p - 2) ** 2, p**2)))
+        D = jnp.array(np.random.normal(size=(p**2, (p - 2) ** 2)))
+
+        v = jnp.array(np.random.normal(size=(p**2,)))
+
+        out = interpolate_cheby_to_cheby_first_kind(B, D, v)
+
+        assert out.shape == ((p - 2) ** 2,)
+        jax.clear_caches()
+
+    def test_1(self, caplog) -> None:
+        """Try out the VJP rule."""
+        caplog.set_level(logging.DEBUG)
+        p = 8
+
+        B = jnp.array(np.random.normal(size=((p - 2) ** 2, p**2)))
+        D = jnp.array(np.random.normal(size=(p**2, (p - 2) ** 2)))
+
+        v = jnp.array(np.random.normal(size=(p**2,)))
+
+        v_dot = jnp.array(np.random.normal(size=((p - 2) ** 2,)))
+
+        out, vjp_fn = jax.vjp(interpolate_cheby_to_cheby_first_kind, B, D.T, v)
+        out_jvp = vjp_fn(v_dot)[2]
+        assert out.shape == ((p - 2) ** 2,)
+        assert out_jvp.shape == (p**2,)
+        jax.clear_caches()
+
+    def test_2(self, caplog) -> None:
+        """Try out the accuracy of the VJP rule."""
+        caplog.set_level(logging.DEBUG)
+        p = 16
+
+        B, D = rectangular_interp_operator(p)
+        north = jnp.pi / 2
+        south = -jnp.pi / 2
+        east = jnp.pi / 2
+        west = -jnp.pi / 2
+
+        root = DiscretizationNode2D(
+            xmin=west, xmax=east, ymin=south, ymax=north
+        )
+        source_pts = compute_interior_Chebyshev_points_adaptive_2D(root, p)[0]
+        to_x = affine_transform(
+            first_kind_chebyshev_points(p - 2), jnp.array([west, east])
+        )
+        to_y = jnp.flipud(to_x)
+        # Set up target grid
+        target_X, target_Y = jnp.meshgrid(to_x, to_y, indexing="ij")
+        target_pts = jnp.stack(
+            (target_X.flatten(), target_Y.flatten()), axis=-1
+        )
+
+        def f(x: jnp.array) -> jnp.array:
+            # f(x,y) = 2x - 3y^2
+            return 2 * x[..., 0] - 3 * x[..., 1] ** 2
+
+        f_src = f(source_pts)
+        f_target = f(target_pts)
+
+        out, vjp_fn = jax.vjp(
+            interpolate_cheby_to_cheby_first_kind, B, D.T, f_src
+        )
+        assert jnp.allclose(out, f_target)
+
+        # Compute the vJp of f_target
+        out_vjp = vjp_fn(f_target)[2]
+        assert jnp.allclose(out_vjp, f_src)
+
+        jax.clear_caches()

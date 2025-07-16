@@ -86,11 +86,13 @@ class Test_assemble_diff_operator_rectangular:
         p = 8
         half_side_len = 0.25
 
-        d_x, d_y, d_xx, d_yy, d_xy, b = (
+        d_x, d_y, d_xx, d_yy, d_xy, b, d = (
             precompute_rectangular_diff_operators_2D(p, half_side_len)
         )
 
-        stacked_diff_operators = jnp.stack([d_xx, d_xy, d_yy, d_x, d_y, b])
+        stacked_diff_operators = jnp.stack(
+            [d_xx, d_xy, d_yy, d_x, d_y, b, d.T]
+        )
         coeffs_arr = jnp.ones((3, p**2))
         which_coeffs = jnp.array([True, True, True, False, False, False])
         out = assemble_diff_operator_rectangular(
@@ -115,7 +117,7 @@ class Test_assemble_diff_operator_rectangular:
         )
 
         # Compute interpolation operator
-        D_x, D_y, D_xx, D_yy, D_xy, B = (
+        D_x, D_y, D_xx, D_yy, D_xy, B, D = (
             precompute_rectangular_diff_operators_2D(p, half_side_len)
         )
         to_x = affine_transform(
@@ -153,7 +155,9 @@ class Test_assemble_diff_operator_rectangular:
         # Compute differential operator
         coeffs_arr = jnp.ones((2, p**2))
         which_coeffs = jnp.array([True, False, True, False, False, False])
-        stacked_diff_operators = jnp.stack([D_xx, D_xy, D_yy, D_x, D_y, B])
+        stacked_diff_operators = jnp.stack(
+            [D_xx, D_xy, D_yy, D_x, D_y, B, D.T]
+        )
         out = assemble_diff_operator_rectangular(
             coeffs_arr, which_coeffs, stacked_diff_operators
         )
@@ -194,7 +198,7 @@ class Test_assemble_diff_operator_rectangular:
         )
 
         # Compute interpolation operator
-        D_x, D_y, D_xx, D_yy, D_xy, B = (
+        D_x, D_y, D_xx, D_yy, D_xy, B, D = (
             precompute_rectangular_diff_operators_2D(p, half_side_len)
         )
         to_x = affine_transform(
@@ -237,7 +241,9 @@ class Test_assemble_diff_operator_rectangular:
             ]
         )
         which_coeffs = jnp.array([True, False, True, False, False, False])
-        stacked_diff_operators = jnp.stack([D_xx, D_xy, D_yy, D_x, D_y, B])
+        stacked_diff_operators = jnp.stack(
+            [D_xx, D_xy, D_yy, D_x, D_y, B, D.T]
+        )
         out = assemble_diff_operator_rectangular(
             coeffs_arr, which_coeffs, stacked_diff_operators
         )
@@ -385,6 +391,7 @@ class Test_get_DtN_rectangular:
         P = np.random.normal(size=(n_cheby_bdry, 4 * q)).astype(np.float64)
         Q = np.random.normal(size=(4 * q, p**2)).astype(np.float64)
         B = np.random.normal(size=((p - 2) ** 2, p**2)).astype(np.float64)
+        D = np.random.normal(size=(p**2, (p - 2) ** 2)).astype(np.float64)
         source_term = np.random.normal(size=(p**2, n_src)).astype(np.float64)
 
         Y, DtN, v, v_prime = get_DtN_rectangular(
@@ -393,6 +400,7 @@ class Test_get_DtN_rectangular:
             Q=Q,
             P=P,
             B=B,
+            D=D,
         )
 
         assert Y.shape == (p**2, 4 * q)

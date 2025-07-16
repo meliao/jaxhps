@@ -100,8 +100,8 @@ def merge_stage_uniform_2D_DtN(
             h_arr_new,
             g_tilde_arr,
         ) = vmapped_uniform_quad_merge_DtN(T_arr, h_arr)
-        T_arr.delete()
-        h_arr.delete()
+        # T_arr.delete()
+        # h_arr.delete()
         logging.debug(
             "merge_stage_uniform_2D_DtN: Merging level %d. S_arr shape: %s, T_arr_new shape: %s, h_arr_new shape: %s, g_tilde_arr shape: %s",
             i,
