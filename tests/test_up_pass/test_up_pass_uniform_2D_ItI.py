@@ -24,11 +24,13 @@ class Test_assemble_boundary_data:
 
         nside = 3
         h_in = jnp.zeros((4, 4 * nside))
+        g_in = jnp.zeros((4, 4 * nside))
         D_inv = jnp.zeros((8 * nside, 8 * nside))
         BD_inv = jnp.zeros((8 * nside, 8 * nside))
 
-        h, g_tilde = assemble_boundary_data(h_in, D_inv, BD_inv)
+        h, g, g_tilde = assemble_boundary_data(h_in, g_in, D_inv, BD_inv)
         assert h.shape == (8 * nside,)
+        assert g.shape == (8 * nside,)
         assert g_tilde.shape == (8 * nside,)
 
 
@@ -220,13 +222,14 @@ class Test_up_pass_uniform_2D_ItI:
         source = jnp.ones((domain.n_leaves, p**2, nsrc))
 
         # Do the upward pass
-        v, g_tilde_lst, h_last = up_pass_uniform_2D_ItI(
-            source=source, pde_problem=t, return_h_last=True
+        v, g_tilde_lst, h_last, g_last = up_pass_uniform_2D_ItI(
+            source=source, pde_problem=t, return_bdry_imp_data=True
         )
 
         assert v.shape == (n_leaves, p**2, nsrc)
         assert len(g_tilde_lst) == l
         assert h_last.shape == (domain.boundary_points.shape[0], nsrc)
+        assert g_last.shape == (domain.boundary_points.shape[0], nsrc)
 
     def test_3(self, caplog) -> None:
         """Tests to make sure things run without error. nsrc=1 and return_h_last = True"""
@@ -284,10 +287,11 @@ class Test_up_pass_uniform_2D_ItI:
         source = jnp.ones((domain.n_leaves, p**2))
 
         # Do the upward pass
-        v, g_tilde_lst, h_last = up_pass_uniform_2D_ItI(
-            source=source, pde_problem=t, return_h_last=True
+        v, g_tilde_lst, h_last, g_last = up_pass_uniform_2D_ItI(
+            source=source, pde_problem=t, return_bdry_imp_data=True
         )
 
         assert v.shape == (n_leaves, p**2)
         assert len(g_tilde_lst) == l
         assert h_last.shape == (domain.boundary_points.shape[0],)
+        assert g_last.shape == (domain.boundary_points.shape[0],)

@@ -10,7 +10,7 @@ def up_pass_uniform_2D_ItI(
     pde_problem: PDEProblem,
     device: jax.Device = jax.devices()[0],
     host_device: jax.Device = jax.devices("cpu")[0],
-    return_h_last: bool = False,
+    return_bdry_imp_data: bool = False,
 ) -> Tuple[jax.Array, List[jax.Array], jax.Array]:
     """
     This function performs the upward pass for 2D ItI problems. It recomputes the local solve stage to get
@@ -32,8 +32,8 @@ def up_pass_uniform_2D_ItI(
     host_device : jax.Device, optional
         Where to place the output. Defaults to ``jax.devices("cpu")[0]``.
 
-    return_h_last : bool, optional
-        If True, return the last h vector, which gives the outgoing impedance data for the particular solution evaluated at the domain boundary.
+    return_bdry_imp_data : bool, optional
+        If True, return outgoing and incoming impedance data for the particular solution evaluated at the domain boundary.
 
     Returns
     -------
@@ -44,7 +44,10 @@ def up_pass_uniform_2D_ItI(
         List of pre-computed g_tilde matrices for each level of the quadtree.
 
     h_last : jax.Array
-        Outgoing impedance data for the particular solution evaluated at the domain boundary. Has shape (nbdry, nsrc). Is only returned if ``return_h_last=True``.
+        Outgoing impedance data for the particular solution evaluated at the domain boundary. Has shape (nbdry, nsrc). Is only returned if ``return_bdry_imp_data=True``.
+
+    g_last : jax.Array
+        Incoming impedance data for the particular solution evaluated at the domain boundary. Has shape (nbdry, nsrc). Is only returned if ``return_bdry_imp_data=True``.
     """
 
     bool_multi_source = source.ndim == 3
@@ -86,12 +89,8 @@ def up_pass_uniform_2D_ItI(
     # Get leaf-level h_in array, which is an einsum between the particular soln and
     # the QH array stored in the PDEProblem.
     h_in = jnp.einsum("ij,kjl->kil", pde_problem.QH, v)
+    g_in = jnp.einsum("ij,kjl->kil", pde_problem.QG, v)
 
-    # Y, T, v, h_in = local_solve_stage_uniform_2D_ItI(
-    #     pde_problem=pde_problem,
-    #     device=device,
-    #     host_device=host_device,
-    # )
     logging.debug(
         "up_pass_uniform_2D_ItI: after local solve, h_in shape = %s",
         h_in.shape,
@@ -104,10 +103,13 @@ def up_pass_uniform_2D_ItI(
 
         nnodes, nbdry, nsrc = h_in.shape
         h_in = h_in.reshape(nnodes // 4, 4, nbdry, nsrc)
+        g_in = g_in.reshape(nnodes // 4, 4, nbdry, nsrc)
         D_inv = D_inv_lst[i]
         BD_inv = BD_inv_lst[i]
 
-        h_in, g_tilde = vmapped_assemble_boundary_data(h_in, D_inv, BD_inv)
+        h_in, g_in, g_tilde = vmapped_assemble_boundary_data(
+            h_in, g_in, D_inv, BD_inv
+        )
         g_tilde_lst.append(g_tilde)
 
     logging.debug(
@@ -123,6 +125,7 @@ def up_pass_uniform_2D_ItI(
             jnp.squeeze(g_tilde, axis=-1) for g_tilde in g_tilde_lst
         ]
         h_in = jnp.squeeze(h_in, axis=-1)
+        g_in = jnp.squeeze(g_in, axis=-1)
         logging.debug(
             "up_pass_uniform_2D_ItI: it's not multi source so squeezing h_in to shape %s",
             h_in.shape,
@@ -130,8 +133,13 @@ def up_pass_uniform_2D_ItI(
 
     out = (v, g_tilde_lst)
 
-    if return_h_last:
-        out = (v, g_tilde_lst, jnp.squeeze(h_in, axis=0))
+    if return_bdry_imp_data:
+        out = (
+            v,
+            g_tilde_lst,
+            jnp.squeeze(h_in, axis=0),
+            jnp.squeeze(g_in, axis=0),
+        )
 
     return out
 
@@ -139,6 +147,7 @@ def up_pass_uniform_2D_ItI(
 @jax.jit
 def assemble_boundary_data(
     h_in: jax.Array,
+    g_in: jax.Array,
     D_inv: jax.Array,
     BD_inv: jax.Array,
 ) -> Tuple[jax.Array, jax.Array]:
@@ -147,12 +156,15 @@ def assemble_boundary_data(
 
     Args:
         h_in (jax.Array): Has shape (4, 4 * nside, n_src) where nside is the number of discretization points along each side of the nodes being merged.
+        g_in (jax.Array): Has shape (4, 4 * nside, n_src) where nside is the number of discretization points along each side of the nodes being merged.
         D_inv (jax.Array): Has shape (8 * nside, 8 * nside)
         BD_inv (jax.Array): Has shape (8 * nside, 8 * nside)
 
     Returns:
         h : jax.Array
             Has shape (8 * nside, n_src) and is the outgoing impedance data due to the particular solution on the merged node.
+        g : jax.Array
+            Has shape (8 * nside, n_src) and is the incoming impedance data due to the particular solution on the merged nodes.
         g_tilde : jax.Array
             Has shape (8 * nside, n_src) and is the incoming impedance data due to the particular solution on the merged node, evaluated along the merge interfaces.
     """
@@ -186,6 +198,28 @@ def assemble_boundary_data(
 
     h_ext_child = jnp.concatenate([h_a_1, h_b_2, h_c_3, h_d_4])
 
+    # Break up the g array in the same way to form g_int_child and g_ext_child
+    g_a = g_in[0]
+    g_a_1 = jnp.concatenate([g_a[-nside:], g_a[:nside]])
+    g_a_5 = g_a[nside : 2 * nside]
+    g_a_8 = jnp.flipud(g_a[2 * nside : 3 * nside])
+    g_b = g_in[1]
+    g_b_2 = g_b[: 2 * nside]
+    g_b_6 = g_b[2 * nside : 3 * nside]
+    g_b_5 = jnp.flipud(g_b[3 * nside : 4 * nside])
+    g_c = g_in[2]
+    g_c_6 = jnp.flipud(g_c[:nside])
+    g_c_3 = g_c[nside : 3 * nside]
+    g_c_7 = g_c[3 * nside : 4 * nside]
+    g_d = g_in[3]
+    g_d_8 = g_d[:nside]
+    g_d_7 = jnp.flipud(g_d[nside : 2 * nside])
+    g_d_4 = g_d[2 * nside : 4 * nside]
+    g_int_child = jnp.concatenate(
+        [g_b_5, g_d_8, g_b_6, g_d_7, g_a_5, g_c_6, g_c_7, g_a_8]
+    )
+    g_ext_child = jnp.concatenate([g_a_1, g_b_2, g_c_3, g_d_4])
+
     g_tilde = -1 * D_inv @ h_int_child
 
     # g_tilde is ordered like a_5, a_8, c_6, c_7, b_5, b_6, d_7, d_8.
@@ -207,13 +241,16 @@ def assemble_boundary_data(
 
     h = h_ext_child - BD_inv @ h_int_child
 
+    g = g_ext_child - BD_inv @ g_int_child
+
     # h is ordered like h_a_1, h_b_2, h_c_3, h_d_4. Need to
     # roll it so that it's ordered like [bottom, left, right, top].
     h = jnp.roll(h, -nside, axis=0)
+    g = jnp.roll(g, -nside, axis=0)
 
-    return h, g_tilde
+    return h, g, g_tilde
 
 
 vmapped_assemble_boundary_data = jax.vmap(
-    assemble_boundary_data, in_axes=(0, 0, 0), out_axes=(0, 0)
+    assemble_boundary_data, in_axes=(0, 0, 0, 0), out_axes=(0, 0, 0)
 )

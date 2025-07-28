@@ -11,6 +11,7 @@ from ._precompute_operators_2D import (
     precompute_N_matrix_2D,
     precompute_G_2D_ItI,
     precompute_QH_2D_ItI,
+    precompute_QG_2D_ItI,
     precompute_projection_ops_2D,
 )
 from ._precompute_operators_3D import (
@@ -180,6 +181,7 @@ class PDEProblem:
                 # QH always appear together so we can precompute their product.
                 N = precompute_N_matrix_2D(self.D_x, self.D_y, domain.p)
                 self.QH = precompute_QH_2D_ItI(N, domain.p, domain.q, self.eta)
+                self.QG = precompute_QG_2D_ItI(N, domain.p, domain.q, self.eta)
 
             # For adaptive case, we need to precompute projection ops
             if not domain.bool_uniform:

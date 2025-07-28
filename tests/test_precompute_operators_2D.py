@@ -7,6 +7,7 @@ from jaxhps._precompute_operators_2D import (
     precompute_G_2D_ItI,
     precompute_N_tilde_matrix_2D,
     precompute_QH_2D_ItI,
+    precompute_QG_2D_ItI,
     precompute_projection_ops_2D,
 )
 from jaxhps._discretization_tree import DiscretizationNode2D
@@ -289,6 +290,73 @@ class Test_precompute_QH_2D_ItI:
         print("f_evals.shape: ", f_evals.shape)
 
         expected_out_imp = f_normals - 1j * eta * f_evals
+
+        assert jnp.allclose(computed_out_imp, expected_out_imp)
+
+
+class Test_precompute_QG_2D_ItI:
+    def test_0(self) -> None:
+        """Check the shape of the output."""
+        p = 8
+        q = 6
+        du_dx, du_dy, _, _, _ = precompute_diff_operators_2D(p, 1.0)
+        N = precompute_N_matrix_2D(du_dx, du_dy, p)
+        out = precompute_QG_2D_ItI(N, p, q, 4.0)
+        assert out.shape == (4 * q, p**2)
+
+    def test_1(self) -> None:
+        """Check that low-degree polynomials are handled correctly."""
+        p = 8
+        q = 6
+        north = jnp.pi / 2
+        south = -jnp.pi / 2
+        east = jnp.pi / 2
+        west = -jnp.pi / 2
+        root = DiscretizationNode2D(
+            xmin=west, xmax=east, ymin=south, ymax=north
+        )
+        half_side_len = jnp.pi / 2
+        du_dx, du_dy, _, _, _ = precompute_diff_operators_2D(p, half_side_len)
+        N = precompute_N_matrix_2D(du_dx, du_dy, p)
+        eta = 4.0
+        out = precompute_QG_2D_ItI(N, p, q, eta)
+
+        def f(x: jnp.array) -> jnp.array:
+            # f(x,y) = x^2 - 3y
+            return x[..., 0] ** 2 - 3 * x[..., 1]
+
+        def dfdx(x: jnp.array) -> jnp.array:
+            # df/dx = 2x
+            return 2 * x[..., 0]
+
+        def dfdy(x: jnp.array) -> jnp.array:
+            # df/dy = -3
+            return -3 * jnp.ones_like(x[..., 1])
+
+        # Set up the Chebyshev points.
+        cheby_pts = compute_interior_Chebyshev_points_adaptive_2D(root, p)
+        gauss_pts = compute_boundary_Gauss_points_adaptive_2D(root, q)
+        print("gauss_pts.shape: ", gauss_pts.shape)
+        all_pts = cheby_pts[0]
+
+        f_evals = f(all_pts)
+        computed_out_imp = out @ f_evals
+
+        f_normals = jnp.concatenate(
+            [
+                -1 * dfdy(gauss_pts[:q]),
+                dfdx(gauss_pts[q : 2 * q]),
+                dfdy(gauss_pts[2 * q : 3 * q]),
+                -1 * dfdx(gauss_pts[3 * q :]),
+                # -1 * dfdx(cheby_bdry[0]).reshape(1),
+            ]
+        )
+        f_evals = f(gauss_pts)
+
+        print("f_normals.shape: ", f_normals.shape)
+        print("f_evals.shape: ", f_evals.shape)
+
+        expected_out_imp = f_normals + 1j * eta * f_evals
 
         assert jnp.allclose(computed_out_imp, expected_out_imp)
 

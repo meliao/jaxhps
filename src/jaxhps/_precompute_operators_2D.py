@@ -240,6 +240,54 @@ def precompute_QH_2D_ItI(
     return Q_I @ H
 
 
+@partial(jax.jit, static_argnums=(1, 2))
+def precompute_QG_2D_ItI(
+    N: jnp.array, p: int, q: int, eta: float
+) -> jnp.array:
+    """
+    G is the matrix which maps functions on a
+    2D Chebyshev grid to incoming impedance data on the 4p
+    Chebyshev boundary points, which include each corner twice.
+    It's composed with Q, which is a block-diagonal matrix of shape (4q, 4p) mapping
+    from Chebyshev boundary points to Gauss boundary points.
+
+    Args:
+        N (jnp.array): Has shape (4p, p**2). Is the result of precompute_N_matrix().
+        p (int): Shape parameter.
+        q (int): Shape parameter.
+        eta (float): Real number
+
+    Returns:
+        jnp.array: Has shape (4q, p**2)
+    """
+    G = N.astype(jnp.complex128)
+    # S side rows 0:p and cols 0:p
+    G = G.at[:p, :p].set(G[:p, :p] + 1j * eta * jnp.eye(p))
+    # E side rows p:2p and cols p-1:2p-1
+    G = G.at[p : 2 * p, p - 1 : 2 * p - 1].set(
+        G[p : 2 * p, p - 1 : 2 * p - 1] + 1j * eta * jnp.eye(p)
+    )
+    # N side rows 2p:3p and cols 2p-2:3p-2
+    G = G.at[2 * p : 3 * p, 2 * p - 2 : 3 * p - 2].set(
+        G[2 * p : 3 * p, 2 * p - 2 : 3 * p - 2] + 1j * eta * jnp.eye(p)
+    )
+    # W side rows 3p:4p, cols 3p-3:4p-4, 0
+    G = G.at[3 * p : 4 * p - 1, 3 * p - 3 : 4 * p - 4].set(
+        G[3 * p : 4 * p - 1, 3 * p - 3 : 4 * p - 4] + 1j * eta * jnp.eye(p - 1)
+    )
+    G = G.at[4 * p - 1, 0].set(G[4 * p - 1, 0] + 1j * eta)
+
+    cheby_pts = chebyshev_points(p)
+    gauss_pts = gauss_points(q)
+
+    # Q_I maps from points on the Chebyshev boundary to points
+    # on the Gauss boundary.
+    Q = barycentric_lagrange_interpolation_matrix_1D(cheby_pts, gauss_pts)
+    Q_I = jnp.kron(jnp.eye(4), Q)
+
+    return Q_I @ G
+
+
 @jax.jit
 def precompute_G_2D_ItI(N_tilde: jnp.array, eta: float) -> jnp.array:
     """

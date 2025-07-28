@@ -218,9 +218,14 @@ TEST_CASE_HELMHOLTZ_ITI = {
 # # u(x,y) = x^3 + 3 y^2
 # # f(x,y) = 6x + 6 + (k^2 + i \gamma) u(x,y)
 # # g(x,y) = defined piecewise
-# # Can't separate the solution into homogeneous and particular parts, but here
-# # is the solution:
-# # u(x,y) = e^{i  \pi x} + e^{i  \pi y}
+
+
+# # u(x,y) = x^3 + 3 y^2
+# # u_x(x,y) = 3x**2
+# # u_xx(x,y) = 6x
+# # u_y(x,y) = 6y
+# # u_yy(x,y) = 6
+# # Note that this solution is entirely the particular solution.
 
 
 # This is (k^2 + i \gamma)
