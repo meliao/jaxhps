@@ -107,7 +107,7 @@ def up_pass_uniform_2D_ItI(
         D_inv = D_inv_lst[i]
         BD_inv = BD_inv_lst[i]
 
-        h_in, g_in, g_tilde = vmapped_assemble_boundary_data(
+        h_in, g_in, g_tilde, h_ext_child = vmapped_assemble_boundary_data(
             h_in, g_in, D_inv, BD_inv
         )
         g_tilde_lst.append(g_tilde)
@@ -126,6 +126,7 @@ def up_pass_uniform_2D_ItI(
         ]
         h_in = jnp.squeeze(h_in, axis=-1)
         g_in = jnp.squeeze(g_in, axis=-1)
+        # h_ext_child = jnp.squeeze(h_ext_child, axis=-1)
         logging.debug(
             "up_pass_uniform_2D_ItI: it's not multi source so squeezing h_in to shape %s",
             h_in.shape,
@@ -248,9 +249,9 @@ def assemble_boundary_data(
     h = jnp.roll(h, -nside, axis=0)
     g = jnp.roll(g, -nside, axis=0)
 
-    return h, g, g_tilde
+    return (h, g, g_tilde, h_ext_child)
 
 
 vmapped_assemble_boundary_data = jax.vmap(
-    assemble_boundary_data, in_axes=(0, 0, 0, 0), out_axes=(0, 0, 0)
+    assemble_boundary_data, in_axes=(0, 0, 0, 0), out_axes=(0, 0, 0, 0)
 )

@@ -268,3 +268,84 @@ TEST_CASE_HELMHOLTZ_ITI_COMPLEX_COEFFS = {
     K_DUDX: dudx_complex_coeffs,
     K_DUDY: dudy_complex_coeffs,
 }
+
+
+# ######################################################################
+# # Test Case 4: ItI problem with particular and homogeneous solutions.
+# # \Delta u(x) = f     in \Omega
+# # u_n + i u   = g     in \partial \Omega
+# #
+# #
+# # u(x,y) = v(x,y) + w(x,y)
+# # v(x,y) = e^{\\kappa(x^2 + y^2)}
+# # w(x,y) = x^2 - y^2
+# # f(x,y) = (4 \\kappa^2 x^2 + 4 \\kappa^2 y^2 + 2 \\kappa) v(x,y)
+# # g(x,y) = defined piecewise
+# # Note that v is the particular solution and w is the homogeneous solution.
+
+
+KAPPA = -1j * ETA / jnp.pi
+
+
+def u_4(x: jax.Array) -> jax.Array:
+    # u(x,y) = v(x,y) + w(x,y)
+    return v_4(x) + w_4(x)
+
+
+def v_4(x: jax.Array) -> jax.Array:
+    # v(x,y) = e^{\\kappa(x^2 + y^2)}
+    return jnp.exp(KAPPA * (jnp.square(x[..., 0]) + jnp.square(x[..., 1])))
+
+
+def dvdx_4(x: jax.Array) -> jax.Array:
+    # dv/dx = 2 \\kappa x e^{\\kappa(x^2 + y^2)}
+    return 2 * KAPPA * x[..., 0] * v_4(x)
+
+
+def dvdy_4(x: jax.Array) -> jax.Array:
+    # dv/dy = 2 \\kappa y e^{\\kappa(x^2 + y^2)}
+    return 2 * KAPPA * x[..., 1] * v_4(x)
+
+
+def w_4(x: jax.Array) -> jax.Array:
+    # w(x,y) = x^2 - y^2
+    return jnp.square(x[..., 0]) - jnp.square(x[..., 1])
+
+
+def dwdx_4(x: jax.Array) -> jax.Array:
+    # dw/dx = 2x
+    return 2 * x[..., 0]
+
+
+def dwdy_4(x: jax.Array) -> jax.Array:
+    # dw/dy = -2y
+    return -2 * x[..., 1]
+
+
+def source_4(x: jax.Array) -> jax.Array:
+    # f(x,y) = (4 \\kappa^2 x^2 + 4 \\kappa^2 y^2 + 2 \\kappa) v(x,y)
+    coeff = (
+        4 * KAPPA**2 * (jnp.square(x[..., 0]) + jnp.square(x[..., 1]))
+        + 2 * KAPPA
+    )
+    return coeff * v_4(x)
+
+
+def dudx_4(x: jax.Array) -> jax.Array:
+    return dwdx_4(x) + dvdx_4(x)
+
+
+def dudy_4(x: jax.Array) -> jax.Array:
+    return dwdy_4(x) + dvdy_4(x)
+
+
+TEST_CASE_ITI_PART_HOMOG = {
+    K_DIRICHLET: u_complex_coeffs,
+    K_XX_COEFF: default_lap_coeffs,
+    K_YY_COEFF: default_lap_coeffs,
+    K_I_COEFF: default_zero_source,
+    K_SOURCE: source_4,
+    K_SOLN: u_4,
+    K_DUDX: dudx_4,
+    K_DUDY: dudy_4,
+}
