@@ -326,17 +326,17 @@ def source_4(x: jax.Array) -> jax.Array:
     # f(x,y) = (4 \\kappa^2 x^2 + 4 \\kappa^2 y^2 + 2 \\kappa) v(x,y)
     coeff = (
         4 * KAPPA**2 * (jnp.square(x[..., 0]) + jnp.square(x[..., 1]))
-        + 2 * KAPPA
+        + 4 * KAPPA
     )
     return coeff * v_4(x)
 
 
 def dudx_4(x: jax.Array) -> jax.Array:
-    return dwdx_4(x) + dvdx_4(x)
+    return dvdx_4(x) + dwdx_4(x)
 
 
 def dudy_4(x: jax.Array) -> jax.Array:
-    return dwdy_4(x) + dvdy_4(x)
+    return dvdy_4(x) + dwdy_4(x)
 
 
 TEST_CASE_ITI_PART_HOMOG = {
@@ -348,4 +348,7 @@ TEST_CASE_ITI_PART_HOMOG = {
     K_SOLN: u_4,
     K_DUDX: dudx_4,
     K_DUDY: dudy_4,
+    K_PART_SOLN_DUDX: dvdx_4,
+    K_PART_SOLN_DUDY: dvdy_4,
+    K_PART_SOLN: v_4,
 }

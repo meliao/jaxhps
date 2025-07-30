@@ -2,8 +2,6 @@ import logging
 from typing import Dict
 import jax.numpy as jnp
 import jax
-import matplotlib.pyplot as plt
-import pytest
 
 from jaxhps._discretization_tree import DiscretizationNode2D
 from jaxhps._domain import Domain
@@ -21,14 +19,14 @@ from .cases import (
     YMIN,
     YMAX,
     ETA,
-    TEST_CASE_HELMHOLTZ_ITI_COMPLEX_COEFFS,
+    TEST_CASE_ITI_PART_HOMOG,
     K_XX_COEFF,
     K_YY_COEFF,
     K_SOURCE,
-    K_SOLN,
-    K_DUDX,
-    K_DUDY,
     K_I_COEFF,
+    K_PART_SOLN_DUDY,
+    K_PART_SOLN_DUDX,
+    K_PART_SOLN,
 )
 
 ATOL_NONPOLY = 1e-8
@@ -75,51 +73,46 @@ def check_up_pass_accuracy_2D_ItI_uniform_Helmholtz_like(
     # Do an up pass to compute the incoming and outgoing impedance data
     source = test_case[K_SOURCE](domain.interior_points)
 
-    _, _, h_last, g_last = up_pass_uniform_2D_ItI(
+    _, _, h_last = up_pass_uniform_2D_ItI(
         source=source, pde_problem=pde_problem, return_bdry_imp_data=True
     )
 
     # Assemble incoming impedance data
     q = domain.boundary_points.shape[0] // 4
-    boundary_u = test_case[K_SOLN](domain.boundary_points)
+    boundary_u = test_case[K_PART_SOLN](domain.boundary_points)
     boundary_u_normals = jnp.concatenate(
         [
-            -1 * test_case[K_DUDY](domain.boundary_points[:q]),
-            test_case[K_DUDX](domain.boundary_points[q : 2 * q]),
-            test_case[K_DUDY](domain.boundary_points[2 * q : 3 * q]),
-            -1 * test_case[K_DUDX](domain.boundary_points[3 * q :]),
+            -1 * test_case[K_PART_SOLN_DUDY](domain.boundary_points[:q]),
+            test_case[K_PART_SOLN_DUDX](domain.boundary_points[q : 2 * q]),
+            test_case[K_PART_SOLN_DUDY](domain.boundary_points[2 * q : 3 * q]),
+            -1 * test_case[K_PART_SOLN_DUDX](domain.boundary_points[3 * q :]),
         ]
     )
-    incoming_imp_data = boundary_u_normals + 1j * pde_problem.eta * boundary_u
     outgoing_imp_data = boundary_u_normals - 1j * pde_problem.eta * boundary_u
 
-    # Plot outgoing_imp_data against h_last
-    plt.plot(outgoing_imp_data.real, label="Outgoing Impedance Data.real")
-    plt.plot(outgoing_imp_data.imag, label="Outgoing Impedance Data.imag")
-    # plt.plot(incoming_imp_data.real, label="Incoming Impedance Data.real")
-    # plt.plot(incoming_imp_data.imag, label="Incoming Impedance Data.imag")
-    plt.plot(h_last.real, label="h_last.real")
-    plt.plot(h_last.imag, label="h_last.imag")
-    # plt.plot(g_last.real, label="g_last.real")
-    # plt.plot(g_last.imag, label="g_last.imag")
-    plt.legend()
-    plt.show()
+    # Plot the magnitudes
+    # plt.plot(jnp.abs(h_last), ".-", label="computed out")
+    # plt.plot(jnp.abs(outgoing_imp_data), "x-", label="expected out")
+    # # plt.plot(jnp.abs(incoming_imp_data), label="expected in")
+    # plt.legend()
+    # plt.show()
 
     # Check the outgoing impedance data
-    assert jnp.allclose(h_last, outgoing_imp_data, atol=ATOL, rtol=RTOL)
+    assert jnp.allclose(
+        h_last, outgoing_imp_data, atol=ATOL_NONPOLY, rtol=RTOL
+    )
 
     # Check the incoming impedance data
-    assert jnp.allclose(g_last, incoming_imp_data, atol=ATOL, rtol=RTOL)
+    # assert jnp.allclose(g_last, incoming_imp_data, atol=ATOL, rtol=RTOL)
 
 
 class Test_accuracy_up_pass_2D_ItI_uniform:
-    @pytest.mark.skip
     def test_0(self, caplog) -> None:
         """Testing whether the computed outgoing and incoming particular soln impedance data matches against expectatiosn after 1 merge level."""
         caplog.set_level(logging.DEBUG)
 
         check_up_pass_accuracy_2D_ItI_uniform_Helmholtz_like(
-            DOMAIN_ITI_NONPOLY, TEST_CASE_HELMHOLTZ_ITI_COMPLEX_COEFFS
+            DOMAIN_ITI_NONPOLY, TEST_CASE_ITI_PART_HOMOG
         )
         jax.clear_caches()
 
@@ -127,9 +120,9 @@ class Test_accuracy_up_pass_2D_ItI_uniform:
         """Testing whether the computed outgoing and incoming particular soln impedance data matches against expectatiosn after the local solve."""
         caplog.set_level(logging.DEBUG)
 
-        domain = Domain(p=P, q=Q, root=ROOT_ITI, L=0)
+        domain = Domain(p=P_NONPOLY, q=Q_NONPOLY, root=ROOT_ITI, L=0)
 
-        test_case = TEST_CASE_HELMHOLTZ_ITI_COMPLEX_COEFFS
+        test_case = TEST_CASE_ITI_PART_HOMOG
         d_xx_coeffs = test_case[K_XX_COEFF](domain.interior_points)
         d_yy_coeffs = test_case[K_YY_COEFF](domain.interior_points)
         i_coeffs = test_case[K_I_COEFF](domain.interior_points)
@@ -168,23 +161,26 @@ class Test_accuracy_up_pass_2D_ItI_uniform:
 
         v = v.squeeze()
 
-        outgoing_imp = pde_problem.QH @ v
-        incoming_imp = pde_problem.QG @ v
+        outgoing_imp_part = pde_problem.QH @ v
+        incoming_imp_part = pde_problem.QG @ v
 
         # Construct the expected impedance data
         q = pde_problem.domain.boundary_points.shape[0] // 4
-        boundary_u = test_case[K_SOLN](pde_problem.domain.boundary_points)
+        boundary_u = test_case[K_PART_SOLN](pde_problem.domain.boundary_points)
         boundary_u_normals = jnp.concatenate(
             [
-                -1 * test_case[K_DUDY](pde_problem.domain.boundary_points[:q]),
-                test_case[K_DUDX](
+                -1
+                * test_case[K_PART_SOLN_DUDY](
+                    pde_problem.domain.boundary_points[:q]
+                ),
+                test_case[K_PART_SOLN_DUDX](
                     pde_problem.domain.boundary_points[q : 2 * q]
                 ),
-                test_case[K_DUDY](
+                test_case[K_PART_SOLN_DUDY](
                     pde_problem.domain.boundary_points[2 * q : 3 * q]
                 ),
                 -1
-                * test_case[K_DUDX](
+                * test_case[K_PART_SOLN_DUDX](
                     pde_problem.domain.boundary_points[3 * q :]
                 ),
             ]
@@ -194,21 +190,19 @@ class Test_accuracy_up_pass_2D_ItI_uniform:
         expected_in = boundary_u_normals + 1j * pde_problem.eta * boundary_u
 
         # Plot the outgoing data
-        plt.plot(outgoing_imp.real, ".-", label="computed out.real")
-        plt.plot(outgoing_imp.imag, label="computed out.imag")
-        plt.plot(incoming_imp.real, "x-", label="computed in.real")
-        plt.plot(incoming_imp.imag, label="computed in.imag")
-        # plt.plot(expected_out.real, label="Expected Outgoing Data.real")
-        # plt.plot(expected_out.imag, label="Expected Outgoing Data.imag")
-        plt.legend()
-        plt.show()
+        # plt.plot(jnp.abs(outgoing_imp_part), ".-", label="computed out")
+        # plt.plot(jnp.abs(incoming_imp_part), "x-", label="computed in")
+        # plt.plot(jnp.abs(expected_out), label="expected out")
+        # plt.plot(jnp.abs(expected_in), label="expected in")
+        # plt.legend()
+        # plt.show()
 
         # Check equality
         assert jnp.allclose(
-            outgoing_imp, expected_out, atol=ATOL_NONPOLY, rtol=RTOL
+            outgoing_imp_part, expected_out, atol=ATOL_NONPOLY, rtol=RTOL
         )
         assert jnp.allclose(
-            incoming_imp, expected_in, atol=ATOL_NONPOLY, rtol=RTOL
+            incoming_imp_part, expected_in, atol=ATOL_NONPOLY, rtol=RTOL
         )
 
         jax.clear_caches()

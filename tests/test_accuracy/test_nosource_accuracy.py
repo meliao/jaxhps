@@ -41,7 +41,6 @@ from .cases import (
 
 # Imports necessary for the plotting functions, which are currently disabled.
 # These are useful to sniff out bugs.
-from jaxhps._utils import plot_soln_from_cheby_nodes
 # import matplotlib.pyplot as plt
 
 ATOL_NONPOLY = 1e-8
@@ -147,12 +146,12 @@ def check_merge_accuracy_nosource_2D_ItI_uniform_Helmholtz_like(
     )
 
     # Plot the solution. This function can be found in src//_utils.py
-    plot_soln_from_cheby_nodes(
-        cheby_nodes=domain.interior_points.reshape(-1, 2),
-        corners=None,
-        expected_soln=expected_soln.real.flatten(),
-        computed_soln=computed_soln.real.flatten(),
-    )
+    # plot_soln_from_cheby_nodes(
+    #     cheby_nodes=domain.interior_points.reshape(-1, 2),
+    #     corners=None,
+    #     expected_soln=expected_soln.real.flatten(),
+    #     computed_soln=computed_soln.real.flatten(),
+    # )
 
     max_diff = jnp.max(jnp.abs(computed_soln - expected_soln))
 
@@ -402,7 +401,7 @@ class Test_accuracy_2D_ItI_uniform:
         """Tests to make sure things run without error."""
         caplog.set_level(logging.DEBUG)
         check_merge_accuracy_nosource_2D_ItI_uniform_Helmholtz_like(
-            DOMAIN_ITI, TEST_CASE_ITI_PART_HOMOG
+            DOMAIN_ITI_NONPOLY, TEST_CASE_ITI_PART_HOMOG
         )
 
 
