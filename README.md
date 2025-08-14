@@ -17,6 +17,7 @@ The examples require additional packages `matplotlib` and `h5py`. If you want to
 pip install jaxhps[examples]
 ```
 
+More installation instructions, including installation for a GPU system, are available in [the documentation](https://jaxhps.readthedocs.io/en/latest/#installation).
 
 ## Documentation
 

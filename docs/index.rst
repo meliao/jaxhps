@@ -28,13 +28,21 @@ Available on GitHub at `<https://github.com/meliao/jaxhps>`_.
 Installation
 ----------------
 
-To install the ``jaxhps`` package, you can use `pip` to install it directly from the GitHub repository:
+The ``jaxhps`` package requires ``scipy>=1.14`` and ``jax>=0.4``. You can use `pip` to install ``jaxhps`` and its dependencies it directly from PyPI:
 
 .. code:: bash
 
    pip install jaxhps
 
-The examples require additional packages ``matplotlib`` and ``h5py``. If you want to install them automatically, use:
+However, if jax is not already installed, this will install a CPU-only version of jax. If you want to install jax with GPU support, the suggested installation command is:
+
+.. code:: bash
+
+   pip install jax[cuda12]
+   pip install jaxhps
+
+Where ``cuda12`` should be replaced with the appropriate CUDA version for your system. See the `jax installation guide <https://docs.jax.dev/en/latest/installation.html>`_ for more details on installing JAX with GPU support.
+The examples require additional packages ``matplotlib>=3.8.4`` and ``h5py>=3.11.0``. If you want to install them automatically, use:
 
 .. code:: bash
 
