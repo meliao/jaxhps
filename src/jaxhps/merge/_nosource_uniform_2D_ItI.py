@@ -93,15 +93,15 @@ def nosource_merge_stage_uniform_2D_ItI(
         if host_device != device:
             S_host = jax.device_put(S_arr, host_device)
             S_lst.append(S_host)
-            S_arr.delete()
+            # S_arr.delete()
 
             D_inv_host = jax.device_put(D_inv_arr, host_device)
             D_inv_lst.append(D_inv_host)
-            D_inv_arr.delete()
+            # D_inv_arr.delete()
 
             BD_inv_host = jax.device_put(BD_inv_arr, host_device)
             BD_inverse_lst.append(BD_inv_host)
-            BD_inv_arr.delete()
+            # BD_inv_arr.delete()
         else:
             S_lst.append(S_arr)
             D_inv_lst.append(D_inv_arr)
