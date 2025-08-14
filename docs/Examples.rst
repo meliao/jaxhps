@@ -87,7 +87,7 @@ Computing both of these objects is easy:
    # Jv is the evaluation of J[\theta_t] v, not a function.
    _, Jv = jax.vjp(forward_model, (theta_t,), (v,))
 
-To run the example, use the command line:
+To run the example, you need to generate the single and double-layer kernel matrices using the MATLAB script ``examples/driver_gen_SD_matrices.m``, if you haven't already done so. Once these matrices are in place, you can run the inverse scattering example using the command line:
 
 .. code:: bash
 
