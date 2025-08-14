@@ -17,7 +17,9 @@ GPU_AVAILABLE = any("NVIDIA" in device.device_kind for device in jax.devices())
 
 # On a NVIDIA A40 GPU with standard JAX preallocation, this bytes limit is 35781869568
 GPU_SMALLER_THAN_80GB = (
-    jax.devices()[0].memory_stats()["bytes_limit"] < 40 * 1024**3
+    (jax.devices()[0].memory_stats()["bytes_limit"] < 40 * 1024**3)
+    if GPU_AVAILABLE
+    else False
 )
 
 
