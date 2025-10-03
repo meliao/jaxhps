@@ -3,6 +3,12 @@ Examples
 
 In the source repository, we include code for a few example uses of the HPS routines. The code for these examples is not distributed in the ``jaxhps`` package, but it is available `in the examples directory of the source repository <https://github.com/meliao/jaxhps/tree/main/examples>`_.
 
+.. note::
+   These scripts are optimized for GPUs with 80GB of VRAM. If you have a GPU with less VRAM, you may need to reduce the problem size or polynomial degree to avoid out-of-memory errors. These out-of-memory errors look something like this:
+   ``jaxlib.xla_extension.XlaRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate ...``
+
+
+
 hp convergence on 2D problems with known solutions
 -----------------------------------------------------
 
@@ -20,8 +26,7 @@ High-wavenumber scattering problem
 
 The high-wavenumber scattering example is a GPU implementation of the solver presented in [1]_. The solver is constructed using our :func:`jaxhps.upward_pass_subtree` routine to generate a top-level ItI matrix, sets up and solves boundary integral equation to enforce the radiation condition, and then propagates impedance data to the interior points using the :func:`jaxhps.downward_pass_subtree` routine.
 
-First, run the MATLAB script ``examples/driver_gen_SD_matrices.m``. This will generate and save exterior single and double-layer kernel matrices. These matrices are necessary to define a boundary integral equation for the scattering problem.
-Once the matrices are in place in place, we can run the script:
+To run the example, you will need exterior single and double-layer potential matrices. These matrices are necessary to define a boundary integral equation for the scattering problem. You can download these matrices from Zenodo: `<https://doi.org/10.5281/zenodo.17259087>`_. Alternatively, you can run the MATLAB script ``examples/driver_gen_SD_matrices.m``. This will generate and save the exterior single and double-layer potential matrices; you can also use this script to generate new potential matrices for different domain sizes, discretization levels, and wavenumbers. Once the matrices are in place, we can run the script:
 
 .. note::
    This script only runs and times the code once. To see the large effect of JAX's just-in-time compilation, you may want to edit the script to compute the solution multiple times.
