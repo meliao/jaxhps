@@ -17,6 +17,7 @@ The examples require additional packages `matplotlib` and `h5py`. If you want to
 pip install jaxhps[examples]
 ```
 
+More installation instructions, including installation for a GPU system, are available in [the documentation](https://jaxhps.readthedocs.io/en/latest/#installation).
 
 ## Documentation
 
@@ -34,8 +35,8 @@ python examples/hp_convergence_2D_problems.py --DtN --ItI
 
 ### High-wavenumber scattering problem
 
-First, run the matlab script `examples/driver_gen_SD_matrices.m`. This will generate and save exterior single and double-layer kernel matrices. These matrices are necessary to define a boundary integral equation for the scattering problem.
-Once in place, we can run the script:
+To run the example, you will need exterior single and double-layer potential matrices. These matrices are necessary to define a boundary integral equation for the scattering problem. You can download these matrices from Zenodo: [https://doi.org/10.5281/zenodo.17259087](https://doi.org/10.5281/zenodo.17259087).
+Alternatively, you can run the matlab script `examples/driver_gen_SD_matrices.m`. This will generate and save the exterior single and double-layer potential matrices; you can also use this script to generate new potential matrices for different domain sizes, discretization levels, and wavenumbers. Once the matrices are in place, we can run the script:
 ```
 python examples/wave_scattering_compute_reference_soln.py --scattering_potential gauss_bumps -k 100 --plot_utot
 ```

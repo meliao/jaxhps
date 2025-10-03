@@ -15,6 +15,13 @@ jax.config.update("jax_enable_x64", True)
 # Figure out if GPU is available
 GPU_AVAILABLE = any("NVIDIA" in device.device_kind for device in jax.devices())
 
+# On a NVIDIA A40 GPU with standard JAX preallocation, this bytes limit is 35781869568
+GPU_SMALLER_THAN_80GB = (
+    (jax.devices()[0].memory_stats()["bytes_limit"] < 40 * 1024**3)
+    if GPU_AVAILABLE
+    else False
+)
+
 
 # Device configuration
 
@@ -44,17 +51,21 @@ def local_solve_chunksize_2D(p: int, dtype: jax.typing.DTypeLike) -> int:
     """
 
     if p == 7:
-        return 4**2
+        out = 4**2
 
     if dtype == jnp.complex128:
-        return 4**6
+        out = 4**6
 
-    return 4**7
+    out = 4**7
+    if GPU_SMALLER_THAN_80GB:
+        out //= 2
+    return out
 
 
 def local_solve_chunksize_3D(p: int, dtype: jax.typing.DTypeLike) -> int:
     """
-    Estimates the chunksize that can be used for the local solve stage in 3D probelms.
+    Estimates the chunksize that can be used for the local solve stage in 3D problems.
+    Is calibrated for an 80GB GPU, and will divide the chunksize by 2 if a smaller GPU is detected.
 
     Args:
         p (int): Chebyshev polynomial order.
@@ -67,10 +78,13 @@ def local_solve_chunksize_3D(p: int, dtype: jax.typing.DTypeLike) -> int:
     """
 
     if p <= 8:
-        return 2_000
+        out = 2_000
     elif p <= 10:
-        return 500
+        out = 500
     elif p <= 12:
-        return 100  # bummer how small this must be
+        out = 100  # bummer how small this must be
     else:
-        return 20
+        out = 20
+    if GPU_SMALLER_THAN_80GB:
+        out //= 2
+    return out

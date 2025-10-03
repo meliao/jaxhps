@@ -28,13 +28,21 @@ Available on GitHub at `<https://github.com/meliao/jaxhps>`_.
 Installation
 ----------------
 
-To install the ``jaxhps`` package, you can use `pip` to install it directly from the GitHub repository:
+The ``jaxhps`` package requires ``scipy>=1.14`` and ``jax>=0.4``. You can use `pip` to install ``jaxhps`` and its dependencies it directly from PyPI:
 
 .. code:: bash
 
    pip install jaxhps
 
-The examples require additional packages ``matplotlib`` and ``h5py``. If you want to install them automatically, use:
+However, if jax is not already installed, this will install a CPU-only version of jax. If you want to install jax with GPU support, the suggested installation command is:
+
+.. code:: bash
+
+   pip install jax[cuda12]
+   pip install jaxhps
+
+Where ``cuda12`` should be replaced with the appropriate CUDA version for your system. See the `jax installation guide <https://docs.jax.dev/en/latest/installation.html>`_ for more details on installing JAX with GPU support.
+The examples require additional packages ``matplotlib>=3.8.4`` and ``h5py>=3.11.0``. If you want to install them automatically, use:
 
 .. code:: bash
 
@@ -102,6 +110,55 @@ Now that the solver has been built, we can apply boundary data to get the soluti
    # Apply the boundary data to the solver
    solution = jaxhps.solve(pde_problem=pde_problem,
                           boundary_data=boundary_data)
+
+The :func:`jaxhps.solve` function will return the solution on the HPS grid points, which are ordered in a particular way to make the computation easier. To visualize the solution, it's easiest to use the :class:`jaxhps.Domain`'s interpolation utilities to interpolate the solution to a regular grid:
+
+.. code:: python
+
+   # Interpolate the solution onto a regular grid for plotting.
+   n_pixels = 100
+   x_pts = jnp.linspace(root.xmin, root.xmax, n_pixels)
+   y_pts = jnp.linspace(root.ymin, root.ymax, n_pixels)
+
+   solution_pixels, pixel_locations = domain.interp_from_interior_points(
+      solution, x_pts, y_pts
+   )
+
+Now we can use `matplotlib` to visualize the solution. We know the analytical solution of this problem is :math:`u(x) = x_1^2 - x_2^2`, so we can compare the numerical solution to the analytical one:
+
+.. code:: python
+
+   import matplotlib.pyplot as plt
+
+   # Expected solution for comparison
+   expected_solution = pixel_locations[..., 0] ** 2 - pixel_locations[..., 1] ** 2
+
+   # Plot the computed solution and the deviations from the expected solution.
+   fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+   im_0 = ax[0].imshow(
+      solution_pixels,
+      extent=(root.xmin, root.xmax, root.ymin, root.ymax),
+      origin="lower",
+   )
+   plt.colorbar(im_0, ax=ax[0])
+   ax[0].set_title("Computed Solution")
+   im_1 = ax[1].imshow(
+      jnp.abs(solution_pixels - expected_solution),
+      extent=(root.xmin, root.xmax, root.ymin, root.ymax),
+      origin="lower",
+      cmap="hot",
+   )
+   plt.colorbar(im_1, ax=ax[1])
+   ax[1].set_title("Errors")
+   plt.tight_layout()
+   plt.show()
+
+This should show the following figure. Note that even after interpolation, the solution is within :math:`3 \times 10^{-14}` of the expected solution.
+
+.. image:: images/usage_quickstart.svg
+   :align: center
+   :width: 600
+   :alt: Showing the solution of the quickstart problem, and the deviations from the expected solution.
 
 
 In the ``jaxhps`` package, there are many more utilities for working with HPS algorithms, including adaptive discretization methods, computing on GPUs, and interpolation to and from the HPS discretization.

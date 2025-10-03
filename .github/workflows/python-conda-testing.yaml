@@ -1,6 +1,10 @@
 name: Testing
 
-on: [push]
+on:
+  push:
+    paths:
+      - src/**
+      - .github/workflows/python-conda-testing.yaml
 
 jobs:
   test-suite:
