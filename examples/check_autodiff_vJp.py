@@ -18,7 +18,7 @@ from scipy import special
 
 from jaxhps.down_pass import down_pass_uniform_2D_ItI
 from jaxhps.quadrature import chebyshev_weights
-from scattering_potentials import q_GBM_1
+from scattering_potentials import q_gaussian_bumps
 from wave_scattering_utils import (
     load_SD_matrices,
     get_uin,
@@ -334,7 +334,7 @@ def main(args: argparse.Namespace) -> None:
     dx = reg_x_pts[1] - reg_x_pts[0]
     dy = reg_y_pts[1] - reg_y_pts[0]
     quadrature_weights = jnp.ones((args.n_pixels, args.n_pixels)) * (dx * dy)
-    q_evals_reg = q_GBM_1(points_reg)
+    q_evals_reg = q_gaussian_bumps(points_reg)
     freqs = get_freqs_up_to_2k(args.k, root=root)  # [:10]
     logging.info("Freqs shape: %s", freqs.shape)
     q_coeffs = nu_sinetransform(
@@ -369,8 +369,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Now, choose random coefficients for the perturbation delta
     np.random.seed(0)
-    # delta_coeffs = q_coeffs * 0.01
-    f = jnp.array(np.random.randn(100) + 1j * np.random.randn(100)) * 0.01
+    f = jnp.array(np.random.randn(100) + 1j * np.random.randn(100))
     f = f.astype(jnp.complex128)
 
     # Now, compute the reference Jvp analytically

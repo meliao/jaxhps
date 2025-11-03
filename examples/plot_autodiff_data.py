@@ -79,7 +79,7 @@ def main(args: argparse.Namespace) -> None:
         one_over_h_vals,
         rel_diffs_jvp,
         ".-",
-        label="$J[\\theta ] v$",
+        label="\\texttt{jax.jvp}",
         markersize=10,
         color=cmap[0],
     )
@@ -87,7 +87,7 @@ def main(args: argparse.Namespace) -> None:
         one_over_h_vals,
         rel_diffs_vJp,
         ".-",
-        label="$v^{\\top} J[\\theta ]$",
+        label="\\texttt{jax.vjp}",
         markersize=10,
         color=cmap[1],
     )

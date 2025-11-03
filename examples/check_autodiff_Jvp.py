@@ -16,7 +16,7 @@ from jaxhps import (
     solve,
 )
 from jaxhps.up_pass import up_pass_uniform_2D_ItI
-from scattering_potentials import q_GBM_1
+from scattering_potentials import q_gaussian_bumps
 from wave_scattering_utils import (
     setup_scattering_lin_system,
     get_uin_and_normals,
@@ -324,9 +324,11 @@ def main(args: argparse.Namespace) -> None:
     dx = reg_x_pts[1] - reg_x_pts[0]
     dy = reg_y_pts[1] - reg_y_pts[0]
     quadrature_weights = jnp.ones((args.n_pixels, args.n_pixels)) * (dx * dy)
-    q_evals_reg = q_GBM_1(points_reg)
+    q_evals_reg = q_gaussian_bumps(points_reg)
     freqs = get_freqs_up_to_2k(args.k, root=root)
     logging.info("Freqs shape: %s", freqs.shape)
+    gamma_val = (2 * args.k * (XMAX - XMIN)) / jnp.pi
+    logging.info("gamma_val: %.2f", gamma_val)
     q_coeffs = nu_sinetransform(
         samples=q_evals_reg,
         freqs=freqs,
@@ -360,7 +362,7 @@ def main(args: argparse.Namespace) -> None:
     # Now, choose random coefficients for the perturbation delta
     np.random.seed(0)
     # delta_coeffs = q_coeffs * 0.01
-    delta_coeffs = jnp.array(np.random.randn(q_coeffs.shape[0])) * 0.01
+    delta_coeffs = jnp.array(np.random.randn(q_coeffs.shape[0]))  # * 0.1
 
     # Now, compute the reference Jvp analytically
     jvp_ref = analytical_jvp_coeffs_to_uscat(
