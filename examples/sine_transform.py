@@ -101,7 +101,7 @@ def adjoint_nu_sinetransform(
 
 
 def get_freqs_up_to_2k(
-    k: float, root: DiscretizationNode2D = None
+    k: float, gamma: float = None, root: DiscretizationNode2D = None
 ) -> jax.Array:
     """
     Generates the frequency vectors for the Sine Transform up to a given limit ``2k``.
@@ -115,17 +115,19 @@ def get_freqs_up_to_2k(
     Returns:
         jax.Array: Array of frequency vectors.
     """
-
-    if root is None:
-        max_k = int(k * 2)
+    if gamma is None:
+        if root is None:
+            gamma = int(k * 2)
+        else:
+            L = 2 * root.xmax
+            gamma = int(k * 2 * L / jnp.pi)
     else:
-        L = 2 * root.xmax
-        max_k = int(k * 2 * L / jnp.pi)
+        gamma = int(gamma)
     freqs = []
-    for k1 in range(1, max_k + 1):
-        for k2 in range(1, max_k + 1):
+    for k1 in range(1, gamma + 1):
+        for k2 in range(1, gamma + 1):
             l2_nrm = jnp.sqrt(k1**2 + k2**2)
-            if l2_nrm <= max_k:
+            if l2_nrm <= gamma:
                 freqs.append([k1, k2])
     f = jnp.array(freqs)
 

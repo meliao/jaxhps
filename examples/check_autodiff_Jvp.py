@@ -158,8 +158,17 @@ def coeffs_to_uscat(
         # Evaluate on the exterior reciever points. First need to compute
         # Single and double layer potentials mapping from the boundary to
         # the exterior points.
-        S_ext = gen_S_exterior(domain=problem.domain, k=k, nrec=nrec, rad=rad)
-        D_ext = gen_D_exterior(domain=problem.domain, k=k, nrec=nrec, rad=rad)
+
+        # First check whether S_ext and D_ext are saved in the problem object
+        if not hasattr(problem, "S_ext"):
+            problem.S_ext = gen_S_exterior(
+                domain=problem.domain, k=k, nrec=nrec, rad=rad
+            )
+            problem.D_ext = gen_D_exterior(
+                domain=problem.domain, k=k, nrec=nrec, rad=rad
+            )
+        S_ext = problem.S_ext
+        D_ext = problem.D_ext
 
         uscat_at_rec = D_ext @ uscat - S_ext @ uscat_dn
 

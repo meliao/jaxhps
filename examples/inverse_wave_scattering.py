@@ -70,6 +70,7 @@ def setup_args() -> argparse.Namespace:
     parser.add_argument("-L", type=int, default=3)
     parser.add_argument("-p", type=int, default=16)
     parser.add_argument("-k", type=float, default=20.0)
+    parser.add_argument("-gamma", type=float, default=5.0)
     parser.add_argument(
         "-SD_matrix_fp", type=str, default="../data/examples/SD_matrices"
     )
@@ -105,7 +106,10 @@ def plot_uscat(
 
 def plot_coeffs(
     coeffs_ground_truth: jax.Array,
-    coeffs_estimate: jax.Array,
+    coeffs_estimate_5: jax.Array,
+    coeffs_estimate_10: jax.Array,
+    coeffs_estimate_15: jax.Array,
+    coeffs_estimate_20: jax.Array,
     freqs: jax.Array,
     plot_fp: str,
 ) -> None:
@@ -119,9 +123,12 @@ def plot_coeffs(
 
     fig, ax = plt.subplots(figsize=(FIGSIZE, FIGSIZE))
 
-    colors = get_discrete_cmap(2, cmap=parula_cmap)
+    colors = get_discrete_cmap(5, cmap=parula_cmap)
 
-    diffs = coeffs_ground_truth - coeffs_estimate
+    diffs_5 = coeffs_ground_truth - coeffs_estimate_5
+    diffs_10 = coeffs_ground_truth - coeffs_estimate_10
+    diffs_15 = coeffs_ground_truth - coeffs_estimate_15
+    diffs_20 = coeffs_ground_truth - coeffs_estimate_20
 
     ax.plot(
         jnp.abs(coeffs_ground_truth),
@@ -130,13 +137,31 @@ def plot_coeffs(
         label="$\\theta^*$",
     )
     ax.plot(
-        jnp.abs(diffs),
+        jnp.abs(diffs_5),
         ".-",
         color=colors[1],
-        label="Estimate",
+        label="$ | \\theta^* - \\theta_{5} |$",
+    )
+    ax.plot(
+        jnp.abs(diffs_10),
+        ".-",
+        color=colors[2],
+        label="$ | \\theta^* - \\theta_{10} |$",
+    )
+    ax.plot(
+        jnp.abs(diffs_15),
+        ".-",
+        color=colors[3],
+        label="$ | \\theta^* - \\theta_{15} |$",
+    )
+    ax.plot(
+        jnp.abs(diffs_20),
+        ".-",
+        color=colors[4],
+        label="$ | \\theta^* - \\theta_{20} |$",
     )
     ax.set_yscale("log")
-    ax.set_xlabel("Frequency norm", fontsize=FONTSIZE)
+    ax.set_xlabel("Cofficient index, ordered by frequency", fontsize=FONTSIZE)
     ax.set_ylabel("Coefficient magnitude", fontsize=FONTSIZE)
     ax.tick_params(axis="both", which="major", labelsize=TICKSIZE)
     ax.legend(fontsize=TICKSIZE)
@@ -293,10 +318,10 @@ def main(args: argparse.Namespace) -> None:
     S_int, D_int = load_SD_matrices(SD_matrix_fp)
 
     # Set up ground-truth q
-    q_hps = 0.5 * q_gaussian_bumps(domain.interior_points)
+    q_hps = q_gaussian_bumps(domain.interior_points)
 
     # Set up the sine basis
-    freqs = get_freqs_up_to_2k(args.k, root)  # [:20]
+    freqs = get_freqs_up_to_2k(args.k, gamma=args.gamma, root=root)
     logging.info("Number of optimization variables: %s", freqs.shape[0])
 
     theta_star = nu_sinetransform(
@@ -329,21 +354,21 @@ def main(args: argparse.Namespace) -> None:
         reg_lambda=reg_lambda,
     )
 
-    final_iterate = iterates[-1, :]
-
     # Plot the ground-truth and estimated coefficients
     coeffs_ground_truth = theta_star
-    coeffs_estimate = final_iterate
-    coeffs_fp = os.path.join(args.plots_dir, "coeffs.png")
+    coeffs_fp = os.path.join(args.plots_dir, "coeffs.pdf")
     plot_coeffs(
         coeffs_ground_truth,
-        coeffs_estimate,
-        freqs,
-        coeffs_fp,
+        coeffs_estimate_5=iterates[5, :],
+        coeffs_estimate_10=iterates[10, :],
+        coeffs_estimate_15=iterates[15, :],
+        coeffs_estimate_20=iterates[20, :],
+        freqs=freqs,
+        plot_fp=coeffs_fp,
     )
 
     # plot the residuals
-    residuals_fp = os.path.join(args.plots_dir, "residuals.png")
+    residuals_fp = os.path.join(args.plots_dir, "residuals.pdf")
     plot_residuals(resid_norms, residuals_fp)
 
     # Save the data
