@@ -13,25 +13,25 @@ authors:
     corresponding: true # (This is how to denote the corresponding author)
   - name: Daniel Fortunato
     orcid: 0000-0003-1302-7184
-    affiliation: "2, 3"
+    affiliation: "1, 2"
   - name: Jeremy Hoskins
     orcid: 0000-0001-5307-2452
-    affiliation: 4
+    affiliation: 3
   - name: Rebecca Willett
     orcid: 0000-0002-8109-7582
-    affiliation: "1, 4, 5"
+    affiliation: "3, 4, 5"
 affiliations:
- - name: Department of Computer Science, University of Chicago, USA
-   index: 1
  - name: Center for Computational Mathematics, Flatiron Institute, USA
-   index: 2
+   index: 1
  - name: Center for Computational Biology, Flatiron Institute, USA
-   index: 3
+   index: 2
  - name: Computational and Applied Mathematics, Department of Statistics, University of Chicago, USA
+   index: 3
+ - name: Department of Computer Science, University of Chicago, USA
    index: 4
  - name: Data Science Institute, University of Chicago, USA
    index: 5
-date: 25 May, 2025
+date: 6 November, 2025
 bibliography: paper.bib
 
 ---
