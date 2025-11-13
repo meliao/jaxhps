@@ -70,7 +70,7 @@ def setup_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--SD_matrix_prefix",
-        default="../data/examples/SD_matrices",
+        default="data/examples/SD_matrices",
     )
     return parser.parse_args()
 

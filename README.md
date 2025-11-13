@@ -68,12 +68,11 @@ We have an implementation of a low-dimensional optimization problem using automa
 python examples/inverse_wave_scattering.py --n_iter 25
 ```
 
-This is an inverse scattering problem where we try to recover the locations of four Gaussian bumps which make up the scattering potential. Running the code should produce plots showing the optimization variables converging at the centers of the Gaussian bumps in the scattering potential, as well as a plot showing the convergence of the objective function:
+This is an inverse scattering problem where we try to recover the low-frequency basis coefficients of the scattering potential from the earlier example. Running the code should produce a plot showing the convergence of the objective function:
 
-![Showing the convergence of the objective function in our inverse scattering example.](.github/assets/inverse_scattering_residuals.svg)
-![Showing the convergence of the iterates to the centers of the Gaussian bumps.](.github/assets/inverse_scattering_iterates.svg)
+![Showing the convergence of the objective function in our inverse scattering example.](.github/assets/residuals.svg)
 
-## Linearized Poisson--Boltzmann equation
+### Linearized Poisson--Boltzmann equation
 
 Our method can be used to solve the a linearized Poisson-Boltzmann equation, which models the electrostatic properties of a molecule in solution. 
 

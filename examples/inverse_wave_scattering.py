@@ -72,7 +72,7 @@ def setup_args() -> argparse.Namespace:
     parser.add_argument("-k", type=float, default=20.0)
     parser.add_argument("-gamma", type=float, default=5.0)
     parser.add_argument(
-        "-SD_matrix_fp", type=str, default="../data/examples/SD_matrices"
+        "-SD_matrix_fp", type=str, default="data/examples/SD_matrices"
     )
 
     return parser.parse_args()

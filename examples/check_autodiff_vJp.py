@@ -74,7 +74,7 @@ def setup_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--SD_matrix_prefix",
-        default="../data/examples/SD_matrices",
+        default="data/examples/SD_matrices",
     )
     return parser.parse_args()
 
@@ -384,7 +384,6 @@ def main(args: argparse.Namespace) -> None:
         quad_weights_single_panel=quad_weights_ref,
     )
     logging.info("Computed reference vJp.")
-    logging.info("vjp_ref: %s", vjp_ref[:10])
 
     # Loop through L levels computing the vJp via autodiff and comparing to reference
     rel_diffs = []
@@ -419,7 +418,6 @@ def main(args: argparse.Namespace) -> None:
         )[1]
 
         vjp_autodiff = vjp_autodiff_fn(f[..., None])[0]
-        logging.info("vJp_autodiff: %s", vjp_autodiff[:10])
 
         # Compute error
         error = jnp.linalg.norm(vjp_autodiff - vjp_ref) / jnp.linalg.norm(
