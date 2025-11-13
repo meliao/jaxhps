@@ -57,12 +57,35 @@ This will generate plots which looks like this, showing the scattering potential
    :alt: Showing the absolute value of the total wave field of a scattering problem where k=100 and the scattering potential is a sum of randomly-placed Gaussian bumps.
 
 
+Accuracy of automatic differentiation
+------------------------------------------
+In this example, we compare the output of JAX's automatic differentiation to the action of the Frèchet derivative of the following function:
+
+.. math::
+
+   \mathcal{F} \circ \mathcal{B}(\theta) = u
+
+where :math:`u` is the solution to the variable-coefficient Helmholtz equation with scattering potential :math:`q_\theta` specified by basis coefficients :math:`\theta`. We compute the Frèchet derivative by solving auxiliary PDEs; see [2]_. We include separate scripts for assessing the accuracy of Jacobian-vector products and vector-Jacobian products, and a third script for plotting:
+
+.. code:: bash
+
+   python examples/check_autodiff_Jvp.py
+   python examples/check_autodiff_vJp.py
+   python examples/plot_autodiff_data.py
+
+This produces a figure showing the convergence of the two autodiff methods: 
+
+.. image:: images/autodiff_Jvp_vJp_convergence.svg
+   :align: center
+   :width: 300
+   :alt: Showing the convergence of JAX Jvp and vJp, with order p-2 convergence for comparison.
+
+
 
 Inverse wave scattering using automatic differentiation
 ------------------------------------------------------------
-
-We use the inverse wave scattering solver presented above to demonstrate the use of automatic differentiation with our solver. 
-This example is a 2D inverse scattering problem where we try to recover the locations of four Gaussian bumps which make up the scattering potential. Using automatic differentiation with our code is simple. We want to be able to compute Jacobian-vector products:
+ 
+This example is a 2D inverse scattering problem where we try to recover the basis coefficients :math:`\theta` of a scattering potential :math:`q`. Using automatic differentiation with our code is simple. We want to be able to compute Jacobian-vector products:
 
 .. math::
 
@@ -96,17 +119,14 @@ To run the example, you need to generate the single and double-layer kernel matr
 
 .. code:: bash
 
-   python examples/inverse_wave_scattering.py --n_iter 25
+   python examples/inverse_wave_scattering.py --n_iter 20
 
 
-In this example, we try to recover the locations of four Gaussian bumps which make up the scattering potential. 
-Running the code should produce plots showing the optimization variables converging at the centers of the Gaussian bumps in the scattering potential, as well as a plot showing the convergence of the objective function:
+In this example, we are trying to recover the low-frequency sine basis coefficients :math:`\theta` of the scattering potential from the forward wave scattering example.
+Running the code should produce this plot showing the convergence of the algorithm:
 
-.. image:: images/inverse_scattering_iterates.svg
-   :align: center
-   :width: 300
-   :alt: Showing the convergence of the iterates to the centers of the Gaussian bumps.
-.. image:: images/inverse_scattering_residuals.svg
+
+.. image:: images/residuals.svg
    :align: center
    :width: 300
    :alt: Showing the convergence of the objective function in our inverse scattering example.
@@ -150,3 +170,4 @@ This should produce output giving information about the generated grid and solut
 
 
 .. [1] Gillman, A., Barnett, A.H. & Martinsson, PG. A spectrally accurate direct solution technique for frequency-domain scattering problems with variable media. `Bit Numer Math` 55, 141–170 (2015). `<https://doi.org/10.1007/s10543-014-0499-8>`_
+.. [2] Borges, C., Gillman, A. & Greengard, L. High Resolution Inverse Scattering in Two Dimensions Using Recursive Linearization. `SIAM Journal on Imaging Sciences` 10, 641-664 (2017). `<https://doi.org/10.1137/16M1093562>`_

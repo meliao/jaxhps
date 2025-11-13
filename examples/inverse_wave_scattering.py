@@ -9,36 +9,52 @@ import numpy as np
 from scipy.sparse.linalg import LinearOperator, lsqr
 from scipy.io import savemat
 
+from jaxhps import DiscretizationNode2D, Domain, PDEProblem
 
-from inverse_scattering_utils import (
-    q_point_sources,
-    source_locations_to_scattered_field,
-    forward_model,
-    SAMPLE_DOMAIN,
-    K,
-    XMIN,
-    XMAX,
-    YMIN,
-    YMAX,
-    OBSERVATION_BOOLS,
-    SOURCE_DIRS,
+# from inverse_scattering_utils import (
+#     SAMPLE_DOMAIN,
+#     K,
+#     XMIN,
+#     XMAX,
+#     YMIN,
+#     YMAX,
+#     OBSERVATION_BOOLS,
+#     SOURCE_DIRS,
+# )
+from check_autodiff_Jvp import coeffs_to_uscat
+from check_autodiff_vJp import quad_weights_hps_panel
+from wave_scattering_utils import load_SD_matrices
+from plotting_utils import (
+    make_scaled_colorbar,
+    TICKSIZE,
+    FONTSIZE,
+    FIGSIZE,
+    get_discrete_cmap,
+    parula_cmap,
 )
-from wave_scattering_utils import get_uin
-from plotting_utils import make_scaled_colorbar, TICKSIZE, FONTSIZE, FIGSIZE
+from scattering_potentials import q_gaussian_bumps
+from sine_transform import (
+    get_freqs_up_to_2k,
+    nu_sinetransform,
+)
 
-# Disable all matplorlib logging
-# logging.getLogger("matplotlib").setLevel(logging.WARNING)
-# logging.getLogger("PIL").setLevel(logging.WARNING)
+# Disable all matplotlib logging
 logging.getLogger("matplotlib").disabled = True
 logging.getLogger("matplotlib.font_manager").disabled = True
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
 
+plt.rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
+plt.rc("text", usetex=True)
 
 # Uncomment for debugging NaNs. Slows code down.
 # jax.config.update("jax_debug_nans", True)
 
-N_BUMPS = 4
+XMIN = -1
+XMAX = 1
+YMIN = -1
+YMAX = 1
+SOURCE_DIRS = jnp.array([0.0])
 
 
 def setup_args() -> argparse.Namespace:
@@ -50,8 +66,14 @@ def setup_args() -> argparse.Namespace:
         default="data/examples/inverse_wave_scattering",
     )
     parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--n_iter", type=int, default=10)
-    parser.add_argument("--n_per_side", type=int, default=10)
+    parser.add_argument("--n_iter", type=int, default=20)
+    parser.add_argument("-L", type=int, default=3)
+    parser.add_argument("-p", type=int, default=16)
+    parser.add_argument("-k", type=float, default=20.0)
+    parser.add_argument("-gamma", type=float, default=5.0)
+    parser.add_argument(
+        "-SD_matrix_fp", type=str, default="data/examples/SD_matrices"
+    )
 
     return parser.parse_args()
 
@@ -82,85 +104,71 @@ def plot_uscat(
     plt.clf()
 
 
-def plot_iterates(
-    iterates: jnp.array, plot_fp: str, q_evals: jnp.array
+def plot_coeffs(
+    coeffs_ground_truth: jax.Array,
+    coeffs_estimate_5: jax.Array,
+    coeffs_estimate_10: jax.Array,
+    coeffs_estimate_15: jax.Array,
+    coeffs_estimate_20: jax.Array,
+    freqs: jax.Array,
+    plot_fp: str,
 ) -> None:
     """
-    Make a plot of the evaluations of the ground-truth q and then draw arrows showing the iterates.
+    Plots the absolute value of the components of the coefficient vector against
+    the frequency norm.
+
+    Also plots the absolute error between the ground-truth and estimate coefficients.
     """
+    # freq_norms = jnp.linalg.norm(freqs, axis=1)
 
     fig, ax = plt.subplots(figsize=(FIGSIZE, FIGSIZE))
-    CAPSIZE = 2
-    THICKNESS = 1.2
 
-    # plot q
-    im = ax.imshow(q_evals, cmap="plasma", extent=(XMIN, XMAX, YMIN, YMAX))
+    colors = get_discrete_cmap(5, cmap=parula_cmap)
 
-    # The wavelength is 2pi / K. Plot a white bar with the wavelength in the bottom-right corner.
-    wavelength = (2 * np.pi) / K
-    ax.text(0.6, -0.7, "$\\lambda$", fontsize=FONTSIZE, color="white")
+    diffs_5 = coeffs_ground_truth - coeffs_estimate_5
+    diffs_10 = coeffs_ground_truth - coeffs_estimate_10
+    diffs_15 = coeffs_ground_truth - coeffs_estimate_15
+    diffs_20 = coeffs_ground_truth - coeffs_estimate_20
 
-    # Below lambda, plot a line with caps with length 1/16
-    ax.errorbar(
-        x=0.6,
-        y=-0.75,
-        xerr=[
-            [0],
-            [wavelength],
-        ],
-        color="white",
-        capsize=CAPSIZE,
-        elinewidth=THICKNESS,
-        capthick=THICKNESS,
+    ax.plot(
+        jnp.abs(coeffs_ground_truth),
+        ".-",
+        color=colors[0],
+        label="$\\theta^*$",
     )
-
-    # Identify the first iterates
-    iterate_0 = iterates[0, :]
-    logging.info("plot_iterates: iterate_0 shape: %s", iterate_0.shape)
-
-    # Draw the first iterate with a white dot
-    for j in range(iterate_0.shape[0] // 2):
-        plt.plot(
-            iterate_0[2 * j],
-            iterate_0[2 * j + 1],
-            "o",
-            color="white",
-            markersize=4,
-            zorder=4,
-        )
-
-    # Draw the last iterate with a black dot
-    iterate_20 = iterates[-1, :]
-    for j in range(iterate_20.shape[0] // 2):
-        plt.plot(
-            iterate_20[2 * j],
-            iterate_20[2 * j + 1],
-            "o",
-            color="black",
-            markersize=4,
-            zorder=4,
-        )
-
-    n_q = iterates.shape[1] // 2
-    for j in range(n_q):
-        # plot arrows for iterates
-        plt.plot(
-            iterates[:, 2 * j],
-            iterates[:, 2 * j + 1],
-            "o-",
-            color="mediumseagreen",
-            markersize=4,
-        )
-
-    # Set xticks to [-1, 0, 1]
-    ax.set_xticks([-1, 0, 1])
-    ax.set_yticks([-1, 0, 1])
+    ax.plot(
+        jnp.abs(diffs_5),
+        ".-",
+        color=colors[1],
+        label="$ | \\theta^* - \\theta_{5} |$",
+    )
+    ax.plot(
+        jnp.abs(diffs_10),
+        ".-",
+        color=colors[2],
+        label="$ | \\theta^* - \\theta_{10} |$",
+    )
+    ax.plot(
+        jnp.abs(diffs_15),
+        ".-",
+        color=colors[3],
+        label="$ | \\theta^* - \\theta_{15} |$",
+    )
+    ax.plot(
+        jnp.abs(diffs_20),
+        ".-",
+        color=colors[4],
+        label="$ | \\theta^* - \\theta_{20} |$",
+    )
+    ax.set_yscale("log")
+    ax.set_xlabel("Cofficient index, ordered by frequency", fontsize=FONTSIZE)
+    ax.set_ylabel("Coefficient magnitude", fontsize=FONTSIZE)
     ax.tick_params(axis="both", which="major", labelsize=TICKSIZE)
-
-    make_scaled_colorbar(im, ax, fontsize=TICKSIZE)
+    ax.legend(fontsize=TICKSIZE)
+    ax.grid()
 
     fp = plot_fp
-    logging.info("plot_iterates: Saving iterates plot to %s", fp)
+    logging.info("plot_coeffs: Saving coeffs plot to %s", fp)
     plt.savefig(fp, bbox_inches="tight")
     plt.clf()
 
@@ -199,7 +207,15 @@ def obj_fn(u_star: jnp.array, u_obs: jnp.array) -> jnp.array:
 
 
 def gauss_newton_iterations(
-    u_star: jnp.array, x_t: jnp.array, niter: int, reg_lambda: float
+    u_star: jnp.array,
+    x_t: jnp.array,
+    niter: int,
+    freqs: jax.Array,
+    problem: PDEProblem,
+    source_dirs: jax.Array,
+    S_int: jax.Array,
+    D_int: jax.Array,
+    reg_lambda: float,
 ) -> None:
     cond_vals = jnp.zeros((niter,), dtype=jnp.float64)
     resid_norms = jnp.zeros((niter,), dtype=jnp.float64) * jnp.nan
@@ -211,10 +227,20 @@ def gauss_newton_iterations(
 
     for t in range(niter):
         logging.info("t = %i", t)
-        logging.info("x_t = %s", x_t)
+        # logging.info("x_t = %s", x_t)
         logging.debug("x_t.devices: %s", x_t.devices())
 
-        u_t, vjp_fn = jax.vjp(forward_model, x_t)
+        def coeffs_to_uscat_fun(coeffs: jax.Array) -> jax.Array:
+            return coeffs_to_uscat(
+                coeffs=coeffs,
+                freqs=freqs,
+                problem=problem,
+                source_dirs=source_dirs,
+                S_int=S_int,
+                D_int=D_int,
+            )
+
+        u_t, vjp_fn = jax.vjp(coeffs_to_uscat_fun, x_t)
 
         r_t = u_star - u_t
         logging.debug("r_t has shape: %s", r_t.shape)
@@ -231,7 +257,7 @@ def gauss_newton_iterations(
             logging.debug("rmatvec_fn: called")
             x = jax.device_put(x, jax.devices()[0])
             x = jnp.conj(x)
-            out = vjp_fn(x)[0]
+            out = vjp_fn(x[..., None])[0]
             out = jnp.conj(out)
 
             out = jax.device_put(out, jax.devices("cpu")[0])
@@ -241,7 +267,7 @@ def gauss_newton_iterations(
             # Delta has shape (2,)
             logging.debug("matvec_fn: called")
             delta = jax.device_put(delta, jax.devices()[0])
-            a, b = jax.jvp(forward_model, (x_t,), (delta,))
+            a, b = jax.jvp(coeffs_to_uscat_fun, (x_t,), (delta,))
             b = jax.device_put(b, jax.devices("cpu")[0])
             return b
 
@@ -260,7 +286,7 @@ def gauss_newton_iterations(
             "LSQR returned after %i iters with cond=%s", lsqr_out[2], cond
         )
 
-        logging.info("delta_t = %s", delta_t)
+        # logging.info("delta_t = %s", delta_t)
         x_t = x_t + delta_t
 
     return iterates, resid_norms, cond_vals
@@ -271,114 +297,86 @@ def main(args: argparse.Namespace) -> None:
     os.makedirs(args.plots_dir, exist_ok=True)
     logging.info("Plots will be saved to %s", args.plots_dir)
 
-    # Set up boolean array for observation points
-
-    observation_pts = SAMPLE_DOMAIN.interior_points[OBSERVATION_BOOLS].reshape(
-        -1, 2
+    # Set up the PDEProblem object
+    root = DiscretizationNode2D(xmin=XMIN, xmax=XMAX, ymin=YMIN, ymax=YMAX)
+    domain = Domain(p=args.p, q=args.p - 2, root=root, L=args.L)
+    problem = PDEProblem(domain=domain, use_ItI=True, eta=args.k)
+    quad_weights_single_panel = quad_weights_hps_panel(domain)
+    n_leaves = domain.n_leaves
+    quad_weights_all_panels = jnp.repeat(
+        quad_weights_single_panel[None, ...], n_leaves, axis=0
     )
-    logging.debug("Observation points has shape %s", observation_pts.shape)
-
-    # Set up ground-truth scatterer locations and evaluate the scattering potential by
-    # random initialization. For some random inits the optimization.
-    # converges to a local minimum.
-    # I am using the numpy random module because the jax one
-    # is giving me different draws on different devices.
-
-    # Set the random seed
-    np.random.seed(args.seed)
-    ground_truth_locations = jnp.array(
-        np.random.uniform(low=-0.5, high=0.5, size=(N_BUMPS, 2))
+    logging.info(
+        "quad_weights_all_panels shape: %s", quad_weights_all_panels.shape
     )
 
-    logging.info("Ground-truth locations: %s", ground_truth_locations)
-    ground_truth_locations = jax.device_put(
-        ground_truth_locations, jax.devices()[0]
+    # Load the SD matrices
+    SD_matrix_fp = os.path.join(
+        args.SD_matrix_fp,
+        f"SD_k{int(args.k)}_n{args.p - 2}_nside{2**args.L}_dom1.mat",
     )
-    q_evals_hps = q_point_sources(
-        SAMPLE_DOMAIN.interior_points, ground_truth_locations
-    )
-    n_X = 200
-    xvals = jnp.linspace(SAMPLE_DOMAIN.root.xmin, SAMPLE_DOMAIN.root.xmax, n_X)
-    yvals = jnp.flipud(
-        jnp.linspace(SAMPLE_DOMAIN.root.ymin, SAMPLE_DOMAIN.root.ymax, n_X)
-    )
-    q_evals_regular, regular_grid = SAMPLE_DOMAIN.interp_from_interior_points(
-        samples=q_evals_hps,
-        eval_points_x=xvals,
-        eval_points_y=yvals,
+    S_int, D_int = load_SD_matrices(SD_matrix_fp)
+
+    # Set up ground-truth q
+    q_hps = q_gaussian_bumps(domain.interior_points)
+
+    # Set up the sine basis
+    freqs = get_freqs_up_to_2k(args.k, gamma=args.gamma, root=root)
+    logging.info("Number of optimization variables: %s", freqs.shape[0])
+
+    theta_star = nu_sinetransform(
+        samples=q_hps,
+        spatial_points=domain.interior_points,
+        freqs=freqs,
+        quad_weights=quad_weights_all_panels,
     )
 
-    # plot the scattering potential
-    q_fp = os.path.join(args.plots_dir, "q_ground_truth.png")
-    logging.info("Saving q plot to %s", q_fp)
-    plt.imshow(q_evals_regular, cmap="plasma", extent=(XMIN, XMAX, YMIN, YMAX))
-    # plt.plot(observation_pts[:, 0], observation_pts[:, 1], "x", color="black")
-    plt.colorbar()
-    plt.savefig(q_fp, bbox_inches="tight")
-    plt.clf()
-
-    uscat_gt, _ = source_locations_to_scattered_field(ground_truth_locations)
-
-    uscat_regular, regular_grid = SAMPLE_DOMAIN.interp_from_interior_points(
-        samples=uscat_gt,
-        eval_points_x=xvals,
-        eval_points_y=yvals,
-    )
-
-    # plot the total field
-    uscat_real_fp = os.path.join(args.plots_dir, "uscat_ground_truth_real.png")
-    utot = uscat_regular + get_uin(K, regular_grid, SOURCE_DIRS)[..., 0]
-    plot_uscat(utot.real, observation_pts, uscat_real_fp)
+    theta_t = jnp.zeros_like(theta_star)
+    # Initialize with the ground-truth lowest 5 frequencies
+    n_init_freqs = 3
+    theta_t = theta_t.at[:n_init_freqs].set(theta_star[:n_init_freqs])
 
     # u_star is the scattered wave field data we get to observe in the inverse problem
-    u_star = forward_model(ground_truth_locations)
-    # nobs = u_star.shape[0]
-
+    u_star = coeffs_to_uscat(
+        theta_star, freqs, problem, SOURCE_DIRS, S_int=S_int, D_int=D_int
+    )
     reg_lambda = 0.0
 
-    # Initialize the optimization variables randomly
-    x_t = jnp.array(
-        np.random.uniform(low=-0.5, high=0.5, size=(N_BUMPS, 2))
-    ).flatten()
-
     iterates, resid_norms, cond_vals = gauss_newton_iterations(
-        u_star, x_t, args.n_iter, reg_lambda
+        u_star=u_star,
+        x_t=theta_t,
+        niter=args.n_iter,
+        freqs=freqs,
+        problem=problem,
+        source_dirs=SOURCE_DIRS,
+        S_int=S_int,
+        D_int=D_int,
+        reg_lambda=reg_lambda,
     )
 
-    # plot the iterates
-    iterates_fp = os.path.join(args.plots_dir, "iterates.png")
-    plot_iterates(iterates, iterates_fp, q_evals_regular)
+    # Plot the ground-truth and estimated coefficients
+    coeffs_ground_truth = theta_star
+    coeffs_fp = os.path.join(args.plots_dir, "coeffs.pdf")
+    plot_coeffs(
+        coeffs_ground_truth,
+        coeffs_estimate_5=iterates[5, :],
+        coeffs_estimate_10=iterates[10, :],
+        coeffs_estimate_15=iterates[15, :],
+        coeffs_estimate_20=iterates[20, :],
+        freqs=freqs,
+        plot_fp=coeffs_fp,
+    )
 
     # plot the residuals
-    residuals_fp = os.path.join(args.plots_dir, "residuals.png")
+    residuals_fp = os.path.join(args.plots_dir, "residuals.pdf")
     plot_residuals(resid_norms, residuals_fp)
-
-    # Get final estimate
-    x_t = iterates[-1]
-    u_scat_est = source_locations_to_scattered_field(x_t)[0]
-    u_scat_est_regular, regular_grid = (
-        SAMPLE_DOMAIN.interp_from_interior_points(
-            samples=u_scat_est,
-            eval_points_x=xvals,
-            eval_points_y=yvals,
-        )
-    )
-    fp = os.path.join(args.plots_dir, "uscat_est.png")
-    plot_uscat(u_scat_est_regular.real, observation_pts, fp)
-
-    # Plot the diffs
-    diff = uscat_regular.real - u_scat_est_regular.real
-    fp = os.path.join(args.plots_dir, "uscat_diff.png")
-    plot_uscat(diff, observation_pts, fp)
 
     # Save the data
     out_dd = {
         "iterates": iterates,
         "resid_norms": resid_norms,
         "u_star": u_star,
-        "ground_truth_locations": jax.device_put(
-            ground_truth_locations, jax.devices("cpu")[0]
-        ),
+        "theta_star": theta_star,
         "cond_vals": cond_vals,
     }
     save_fp = os.path.join(args.plots_dir, "iterates_data.mat")
