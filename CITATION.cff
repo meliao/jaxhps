@@ -1,31 +1,50 @@
-cff-version: 1.2.0
-message: If you use this software, please cite both the article from preferred-citation and the software itself.
+cff-version: "1.2.0"
 authors:
-  - family-names: Melia
-    given-names: Owen
-  - family-names: Fortunato
-    given-names: Daniel
-  - family-names: Jeremy
-    given-names: Hoskins
-  - family-names: Rebecca
-    given-names: Willett
-title: Hardware Acceleration for HPS Algorithms in Two and Three Dimensions
-version: 1.0.0
-url: https://github.com/meliao/jaxhps
-date-released: '2025-03-28'
+- family-names: Melia
+  given-names: Owen
+  orcid: "https://orcid.org/0000-0003-0737-3718"
+- family-names: Fortunato
+  given-names: Daniel
+  orcid: "https://orcid.org/0000-0003-1302-7184"
+- family-names: Hoskins
+  given-names: Jeremy
+  orcid: "https://orcid.org/0000-0001-5307-2452"
+- family-names: Willett
+  given-names: Rebecca
+  orcid: "https://orcid.org/0000-0002-8109-7582"
+contact:
+- family-names: Melia
+  given-names: Owen
+  orcid: "https://orcid.org/0000-0003-0737-3718"
+doi: 10.5281/zenodo.17610335
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
 preferred-citation:
   authors:
-    - family-names: Melia
-      given-names: Owen
-    - family-names: Fortunato
-      given-names: Daniel
-    - family-names: Jeremy
-      given-names: Hoskins
-    - family-names: Rebecca
-      given-names: Willett
-  title: Hardware Acceleration for HPS Algorithms in Two and Three Dimensions
-  url: https://arxiv.org/abs/2503.17535
-  type: generic
-  year: '2025'
-  conference: {}
-  publisher: {}
+  - family-names: Melia
+    given-names: Owen
+    orcid: "https://orcid.org/0000-0003-0737-3718"
+  - family-names: Fortunato
+    given-names: Daniel
+    orcid: "https://orcid.org/0000-0003-1302-7184"
+  - family-names: Hoskins
+    given-names: Jeremy
+    orcid: "https://orcid.org/0000-0001-5307-2452"
+  - family-names: Willett
+    given-names: Rebecca
+    orcid: "https://orcid.org/0000-0002-8109-7582"
+  date-published: 2025-11-14
+  doi: 10.21105/joss.08549
+  issn: 2475-9066
+  issue: 115
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 8549
+  title: "jaxhps: An elliptic PDE solver built with machine learning in
+    mind"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.08549"
+  volume: 10
+title: "jaxhps: An elliptic PDE solver built with machine learning in
+  mind"
