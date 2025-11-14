@@ -1,7 +1,10 @@
+[![JOSS paper](https://joss.theoj.org/papers/10.21105/joss.08549/status.svg)](https://doi.org/10.21105/joss.08549)
+
 # jaxhps
+
 A JAX package implementing hardware acceleration for HPS methods in two and three dimensions.
 
-See our preprint on arXiv: [Hardware Acceleration for HPS Methods in Two and Three Dimensions](https://arxiv.org/abs/2503.17535)
+See our preprint on arXiv: [Hardware Acceleration for HPS Methods in Two and Three Dimensions](https://arxiv.org/abs/2503.17535) and our paper in the Journal of Open Source Software: [jaxhps: an elliptic PDE solver built with machine learning in mind](https://doi.org/10.21105/joss.08549).
 
 ## Installation
 
