@@ -41,7 +41,7 @@ bibliography: paper.bib
 Elliptic partial differential equations (PDEs) can model many physical phenomena, such as electrostatics, acoustics, wave propagation, and diffusion.
 In scientific machine learning settings, a high-throughput PDE solver may be required to generate a training dataset, run in the inner loop of an iterative algorithm, or interface directly with a deep neural network.
 To provide value to machine learning users, such a PDE solver must be compatible with standard automatic differentiation frameworks, scale efficiently when run on graphics processing units (GPUs), and maintain high accuracy for a large range of input parameters.
-We design the `jaxhps` package with these use-cases in mind by implementing a highly efficient and accurate solver for elliptic problems with native hardware acceleration and automatic differentiation support. 
+We have designed the `jaxhps` package with these use-cases in mind by implementing a highly efficient and accurate solver for elliptic problems with native hardware acceleration and automatic differentiation support. 
 This is achieved by expressing a highly-efficient solution method for elliptic PDEs in JAX [@jax2018github]. 
 This software implements algorithms specifically designed for fast GPU execution of a family of elliptic PDE solvers, which are described in full in @melia_hardware_2025.
 
@@ -65,10 +65,10 @@ While open-source implementations of HPS methods exist for users of MATLAB [@for
 
 The software is designed with two goals:
 
- * Allow users to interact with a simple interface that abstracts the complex HPS algorithms.
- * Organize the flow of data to allow the user to reuse computations where possible.
+ * Allow users to interact with a simple interface that abstracts the complex HPS algorithms
+ * Organize the flow of data to allow the user to reuse computations where possible
 
-A typical user of `jaxhps` will wish compute a solution $u(x)$ to equations (1) and (2).
+A typical user of `jaxhps` will wish to compute a solution $u(x)$ to equations (1) and (2).
 The user will first specify $\Omega$ by creating `DiscretizationNode` and `Domain` objects. 
 These objects automatically compute a high-order composite spectral discretization of $\Omega$. 
 The `Domain` class exposes utilities for interpolating between the composite spectral discretization and a regular discretization specified by the user. 
@@ -85,10 +85,10 @@ Finally, some researchers may want to design new algorithms by operating on the 
 
 # Author Contributions and Disclosure
 
- * **Owen Melia**: Conceptualization; Methodology; Software; Writing - original draft. 
- * **Daniel Fortunato**: Conceptualization; Methodology; Supervision; Writing - review & editing.
- * **Jeremy Hoskins**: Conceptualization; Methodology; Supervision; Writing - review & editing. 
- * **Rebecca Willett**: Conceptualization; Methodology; Supervision; Funding acquisition; Project administration; Writing - review & editing. 
+ * **Owen Melia**: Conceptualization; Methodology; Software; Writing - original draft
+ * **Daniel Fortunato**: Conceptualization; Methodology; Supervision; Writing - review & editing
+ * **Jeremy Hoskins**: Conceptualization; Methodology; Supervision; Writing - review & editing
+ * **Rebecca Willett**: Conceptualization; Methodology; Supervision; Funding acquisition; Project administration; Writing - review & editing
 
 # Acknowledgements
 
