@@ -257,7 +257,9 @@ def get_DtN(
     A_ii_inv = jnp.linalg.inv(A_ii)
     # A_ie shape (n_cheby_int, n_cheby_bdry)
     A_ie = diff_operator[n_cheby_bdry:, :n_cheby_bdry]
-    L_2 = jnp.zeros((diff_operator.shape[0], n_cheby_bdry), dtype=diff_operator.dtype)
+    L_2 = jnp.zeros(
+        (diff_operator.shape[0], n_cheby_bdry), dtype=diff_operator.dtype
+    )
     L_2 = L_2.at[:n_cheby_bdry].set(jnp.eye(n_cheby_bdry))
     soln_operator = -1 * A_ii_inv @ A_ie
     L_2 = L_2.at[n_cheby_bdry:].set(soln_operator)
